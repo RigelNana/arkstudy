@@ -1,12 +1,12 @@
 package handler
 
 import (
-	authpb "auth-service/rpc"
 	"context"
 	"log"
 	"net/http"
 	"os"
-	userpb "user-service/rpc"
+	authpb "proto/auth"
+	userpb "proto/user"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"

@@ -4,11 +4,11 @@ import (
 	"log"
 	"net"
 	"os"
+	"proto/user"
 	"user-service/database"
 	urpc "user-service/handler/rpc"
 	"user-service/models"
 	"user-service/repository"
-	upb "user-service/rpc"
 	"user-service/service"
 
 	"google.golang.org/grpc"
@@ -29,7 +29,7 @@ func main() {
 	svc := service.NewUserService(repo)
 
 	grpcServer := grpc.NewServer()
-	upb.RegisterUserServiceServer(grpcServer, urpc.NewUserRPCServer(svc))
+	user.RegisterUserServiceServer(grpcServer, urpc.NewUserRPCServer(svc))
 
 	port := os.Getenv("USER_GRPC_PORT")
 	if port == "" {

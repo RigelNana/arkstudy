@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	authpb "auth-service/rpc"
+	authpb "proto/auth"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"

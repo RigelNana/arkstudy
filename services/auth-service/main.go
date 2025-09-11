@@ -5,11 +5,11 @@ import (
 	"auth-service/handler/rpc"
 	"auth-service/models"
 	"auth-service/repository"
-	pb "auth-service/rpc"
 	"auth-service/service"
 	"log"
 	"net"
 	"os"
+	pb "proto/auth"
 
 	"google.golang.org/grpc"
 	"gorm.io/gorm"

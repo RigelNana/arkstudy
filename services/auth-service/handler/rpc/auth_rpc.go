@@ -1,10 +1,10 @@
 package rpc
 
 import (
-	pb "auth-service/rpc"
 	"auth-service/service"
 	"context"
 	"errors"
+	pb "proto/auth"
 
 	"github.com/google/uuid"
 )
