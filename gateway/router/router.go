@@ -1,7 +1,8 @@
 package router
 
 import (
-	"github.com/RigelNana/arkstudy/gateway/handler"
+	"gateway/handler"
+
 	"github.com/gin-gonic/gin"
 )
 

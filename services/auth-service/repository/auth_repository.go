@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/RigelNana/arkstudy/services/auth-service/models"
+	"auth-service/models"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

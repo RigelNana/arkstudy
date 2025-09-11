@@ -1,12 +1,12 @@
 package handler
 
 import (
-	authpb "github.com/RigelNana/arkstudy/services/auth-service/rpc"
+	authpb "auth-service/rpc"
 	"context"
 	"log"
 	"net/http"
 	"os"
-	userpb "github.com/RigelNana/arkstudy/services/user-service/rpc"
+	userpb "user-service/rpc"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"

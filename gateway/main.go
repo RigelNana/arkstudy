@@ -4,8 +4,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/RigelNana/arkstudy/gateway/handler"
-	"github.com/RigelNana/arkstudy/gateway/router"
+	"gateway/handler"
+	"gateway/router"
 )
 
 func main() {

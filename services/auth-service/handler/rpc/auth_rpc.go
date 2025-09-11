@@ -1,8 +1,8 @@
 package rpc
 
 import (
-	pb "github.com/RigelNana/arkstudy/services/auth-service/rpc"
-	"github.com/RigelNana/arkstudy/services/auth-service/service"
+	pb "auth-service/rpc"
+	"auth-service/service"
 	"context"
 	"errors"
 

@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"github.com/RigelNana/arkstudy/services/user-service/models"
+	"user-service/models"
 
 	"gorm.io/gorm"
 )

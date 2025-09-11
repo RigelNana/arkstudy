@@ -2,8 +2,8 @@ package rpc
 
 import (
 	"context"
-	pb "github.com/RigelNana/arkstudy/services/user-service/rpc"
-	"github.com/RigelNana/arkstudy/services/user-service/service"
+	pb "user-service/rpc"
+	"user-service/service"
 
 	"github.com/google/uuid"
 )

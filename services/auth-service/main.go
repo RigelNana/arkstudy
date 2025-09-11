@@ -1,12 +1,12 @@
 package main
 
 import (
-	"github.com/RigelNana/arkstudy/services/auth-service/database"
-	"github.com/RigelNana/arkstudy/services/auth-service/handler/rpc"
-	"github.com/RigelNana/arkstudy/services/auth-service/models"
-	"github.com/RigelNana/arkstudy/services/auth-service/repository"
-	pb "github.com/RigelNana/arkstudy/services/auth-service/rpc"
-	"github.com/RigelNana/arkstudy/services/auth-service/service"
+	"auth-service/database"
+	"auth-service/handler/rpc"
+	"auth-service/models"
+	"auth-service/repository"
+	pb "auth-service/rpc"
+	"auth-service/service"
 	"log"
 	"net"
 	"os"

@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	authpb "auth/rpc"
+	authpb "auth-service/rpc"
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
@@ -23,7 +23,7 @@ func NewAuthValidator() *AuthValidator {
 	if addr == "" {
 		addr = "localhost:50051"
 	}
-	
+
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		panic("failed to dial auth-service: " + err.Error())
