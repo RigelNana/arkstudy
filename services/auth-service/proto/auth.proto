@@ -1,0 +1,52 @@
+syntax = "proto3";
+package auth;
+option go_package = "github.com/RigelNana/arkstudy/services/auth-service/rpc;pb";
+service AuthService {
+  rpc Register (RegisterRequest) returns (RegisterResponse);
+  rpc Login (LoginRequest) returns (LoginResponse);
+  rpc ValidateToken (ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc CheckPassword (CheckPasswordRequest) returns (CheckPasswordResponse);
+}
+
+// RegisterRequest 方案B：只接收 user_id 与密码哈希的原始明文（服务内部进行加密）
+message RegisterRequest {
+  string user_id = 1; // 来自 user-service 创建后的用户ID
+  string password = 2; // 原始密码
+}
+
+message RegisterResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// LoginRequest 通过 user_id + password 鉴权
+message LoginRequest {
+  string user_id = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  bool success = 1;
+  string token = 2;
+  string message = 3;
+}
+
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+// ValidateTokenResponse 仅返回 token 是否有效以及 user_id
+message ValidateTokenResponse {
+  bool valid = 1;
+  string user_id = 2;
+  string message = 3;
+}
+
+message CheckPasswordRequest {
+  string user_id = 1;
+  string password = 2;
+}
+
+message CheckPasswordResponse {
+  bool valid = 1;
+}

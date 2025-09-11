@@ -1,0 +1,21 @@
+services:
+  auth-service:
+    build: 
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    ports:
+      - "8080:8080"
+    env_file:
+      - services/auth-service/.env
+    depends_on:
+      - db
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: RigelNana77
+      POSTGRES_DB: arkdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data

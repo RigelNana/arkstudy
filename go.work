@@ -1,0 +1,7 @@
+go 1.24.7
+
+use (
+	./gateway
+	./services/auth-service
+	./services/user-service
+)

@@ -1,0 +1,35 @@
+syntax = "proto3";
+package user;
+option go_package = "github.com/RigelNana/arkstudy/services/user-service/rpc;pb";
+
+service UserService {
+  rpc CreateUser (CreateUserRequest) returns (CreateUserResponse);
+  rpc GetUserByID (GetUserByIDRequest) returns (GetUserResponse);
+  rpc GetUserByUsername (GetUserByUsernameRequest) returns (GetUserResponse);
+  rpc GetUserByEmail (GetUserByEmailRequest) returns (GetUserResponse);
+  rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
+}
+
+message UserInfo {
+  string id = 1;
+  string username = 2;
+  string email = 3;
+  string role = 4;
+  string description = 5;
+}
+
+message CreateUserRequest {
+  string username = 1;
+  string email = 2;
+  string role = 3;
+  string description = 4;
+}
+message CreateUserResponse { bool success = 1; string message = 2; UserInfo user = 3; }
+
+message GetUserByIDRequest { string id = 1; }
+message GetUserByUsernameRequest { string username = 1; }
+message GetUserByEmailRequest { string email = 1; }
+message GetUserResponse { bool found = 1; string message = 2; UserInfo user = 3; }
+
+message ListUsersRequest { int32 limit = 1; int32 offset = 2; }
+message ListUsersResponse { repeated UserInfo users = 1; int64 total = 2; }
