@@ -1,10 +1,11 @@
 package rpc
 
 import (
-	"auth-service/service"
 	"context"
 	"errors"
-	pb "proto/auth"
+
+	pb "github.com/RigelNana/arkstudy/proto/auth"
+	"github.com/RigelNana/arkstudy/services/auth-service/service"
 
 	"github.com/google/uuid"
 )

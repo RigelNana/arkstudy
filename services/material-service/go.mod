@@ -1,4 +1,4 @@
-module github.com/RigelNana/arkstudy/services/material-service
+module github.com/RigelNana/arkstudy-material-service
 
 go 1.24.7
 

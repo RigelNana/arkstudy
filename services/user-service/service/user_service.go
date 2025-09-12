@@ -1,8 +1,8 @@
 package service
 
 import (
-	"user-service/models"
-	"user-service/repository"
+	"github.com/RigelNana/arkstudy/services/user-service/models"
+	"github.com/RigelNana/arkstudy/services/user-service/repository"
 
 	"github.com/google/uuid"
 )

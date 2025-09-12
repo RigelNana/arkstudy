@@ -1,4 +1,4 @@
-module user-service
+module github.com/RigelNana/arkstudy/services/user-service
 
 go 1.24.7
 

@@ -2,8 +2,10 @@ package rpc
 
 import (
 	"context"
-	"proto/user"
-	"user-service/service"
+	"log"
+
+	"github.com/RigelNana/arkstudy/proto/user"
+	"github.com/RigelNana/arkstudy/services/user-service/service"
 
 	"github.com/google/uuid"
 )
@@ -16,10 +18,13 @@ type UserRPCServer struct {
 func NewUserRPCServer(svc service.UserService) *UserRPCServer { return &UserRPCServer{svc: svc} }
 
 func (s *UserRPCServer) CreateUser(ctx context.Context, in *user.CreateUserRequest) (*user.CreateUserResponse, error) {
+	log.Printf("CreateUser called with: Username=%s, Email=%s, Role=%s", in.Username, in.Email, in.Role)
 	u, err := s.svc.Create(in.Username, in.Email, in.Role, in.Description)
 	if err != nil {
+		log.Printf("CreateUser failed: %v", err)
 		return &user.CreateUserResponse{Success: false, Message: err.Error()}, nil
 	}
+	log.Printf("CreateUser success: ID=%s", u.ID.String())
 	return &user.CreateUserResponse{Success: true, Message: "ok", User: &user.UserInfo{Id: u.ID.String(), Username: u.Username, Email: u.Email, Role: u.Role, Description: u.Description}}, nil
 }
 

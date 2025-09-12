@@ -1,7 +1,7 @@
 package database
 
 import (
-	"auth-service/config"
+	"github.com/RigelNana/arkstudy/services/auth-service/config"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

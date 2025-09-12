@@ -1,4 +1,5 @@
-module gateway
+module github.com/RigelNana/arkstudy/gateway
+
 
 go 1.24.7
 

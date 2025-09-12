@@ -1,14 +1,16 @@
 package service
 
 import (
-	"auth-service/models"
-	"auth-service/repository"
-	"auth-service/utils"
 	"context"
 	"errors"
 	"os"
-	"proto/user"
 	"strconv"
+
+	"github.com/RigelNana/arkstudy/proto/user"
+
+	"github.com/RigelNana/arkstudy/services/auth-service/models"
+	"github.com/RigelNana/arkstudy/services/auth-service/repository"
+	"github.com/RigelNana/arkstudy/services/auth-service/utils"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"

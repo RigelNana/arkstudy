@@ -1,15 +1,16 @@
 package main
 
 import (
-	"auth-service/database"
-	"auth-service/handler/rpc"
-	"auth-service/models"
-	"auth-service/repository"
-	"auth-service/service"
 	"log"
 	"net"
 	"os"
-	pb "proto/auth"
+
+	pb "github.com/RigelNana/arkstudy/proto/auth"
+	"github.com/RigelNana/arkstudy/services/auth-service/database"
+	"github.com/RigelNana/arkstudy/services/auth-service/handler/rpc"
+	"github.com/RigelNana/arkstudy/services/auth-service/models"
+	"github.com/RigelNana/arkstudy/services/auth-service/repository"
+	"github.com/RigelNana/arkstudy/services/auth-service/service"
 
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
