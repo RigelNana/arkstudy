@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package ai;
+
+option go_package = "github.com/RigelNana/arkstudy/proto/ai";
+
+// AI 服务接口
+service AIService {
+    rpc ProcessOCR (OCRRequest) returns (OCRResponse);
+    rpc ProcessASR (ASRRequest) returns (ASRResponse);
+    rpc ProcessLLM (LLMRequest) returns (LLMResponse);
+    rpc GetTaskStatus (TaskStatusRequest) returns (TaskStatusResponse);
+}
+
+// 任务状态枚举
+enum TaskStatus {
+    QUEUED = 0;
+    PROCESSING = 1;
+    COMPLETED = 2;
+    FAILED = 3;
+}
+
+// ======================= OCR 相关消息 =======================
+
+message OCRRequest {
+    string task_id = 1;
+    string file_url = 2;
+    string file_type = 3;
+    map<string, string> options = 4; // 语言、精度等选项
+}
+
+message OCRResponse {
+    string task_id = 1;
+    TaskStatus status = 2;
+    string text = 3;
+    float confidence = 4;
+    repeated BoundingBox boxes = 5;
+    string error_message = 6;
+}
+
+message BoundingBox {
+    float x = 1;
+    float y = 2;
+    float width = 3;
+    float height = 4;
+    string text = 5;
+    float confidence = 6;
+}
+
+// ======================= ASR 相关消息 =======================
+
+message ASRRequest {
+    string task_id = 1;
+    string file_url = 2;
+    string language = 3;
+    map<string, string> options = 4; // 模型、质量等选项
+}
+
+message ASRResponse {
+    string task_id = 1;
+    TaskStatus status = 2;
+    string transcript = 3;
+    float confidence = 4;
+    repeated Segment segments = 5;
+    string language_detected = 6;
+    string error_message = 7;
+}
+
+message Segment {
+    float start_time = 1;
+    float end_time = 2;
+    string text = 3;
+    float confidence = 4;
+}
+
+// ======================= LLM 相关消息 =======================
+
+message LLMRequest {
+    string task_id = 1;
+    string content = 2;
+    string prompt = 3;
+    string model = 4;
+    map<string, string> options = 5; // 温度、最大长度等选项
+}
+
+message LLMResponse {
+    string task_id = 1;
+    TaskStatus status = 2;
+    string result = 3;
+    map<string, string> metadata = 4; // 模型信息、token使用量等
+    string error_message = 5;
+}
+
+// ======================= 任务状态查询 =======================
+
+message TaskStatusRequest {
+    string task_id = 1;
+}
+
+message TaskStatusResponse {
+    string task_id = 1;
+    TaskStatus status = 2;
+    string message = 3;
+    float progress = 4; // 0.0-1.0
+    string error_message = 5;
+}

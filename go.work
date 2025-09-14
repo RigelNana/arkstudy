@@ -4,5 +4,6 @@ use (
 	./gateway
 	./proto
 	./services/auth-service
+	./services/material-service
 	./services/user-service
 )

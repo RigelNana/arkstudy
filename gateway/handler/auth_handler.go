@@ -7,6 +7,7 @@ import (
 	"os"
 
 	authpb "github.com/RigelNana/arkstudy/proto/auth"
+	materialpb "github.com/RigelNana/arkstudy/proto/material"
 	userpb "github.com/RigelNana/arkstudy/proto/user"
 
 	"github.com/gin-gonic/gin"
@@ -132,4 +133,16 @@ func NewUserServiceClient() userpb.UserServiceClient {
 		log.Fatalf("dial user-service: %v", err)
 	}
 	return userpb.NewUserServiceClient(conn)
+}
+
+func NewMaterialServiceClient() materialpb.MaterialServiceClient {
+	addr := os.Getenv("MATERIAL_GRPC_ADDR")
+	if addr == "" {
+		addr = "localhost:50053"
+	}
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("dial material-service: %v", err)
+	}
+	return materialpb.NewMaterialServiceClient(conn)
 }

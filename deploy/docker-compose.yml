@@ -10,6 +10,7 @@ services:
     depends_on: 
       - user-service
       - auth-service
+      - material-service
   auth-service:
     build: 
       context: ..
@@ -21,6 +22,32 @@ services:
     depends_on:
       db:
         condition: service_healthy
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+
+  
   user-service:
     build:
       context: ..
@@ -41,7 +68,7 @@ services:
       POSTGRES_PASSWORD: RigelNana77
       POSTGRES_DB: arkdb
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ../init.sql:/docker-entrypoint-initdb.d/init.sql:z
       - db-data:/var/lib/postgresql/data
@@ -50,5 +77,21 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  material-service:
+    build:
+      context: ..
+      dockerfile: services/material-service/Dockerfile
+    ports:
+      - "50053:50053"
+    env_file:
+      - ../services/material-service/.env
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      
 volumes:
   db-data:

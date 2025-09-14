@@ -1,3 +1,5 @@
+github.com/RigelNana/arkstudy/proto v0.0.0-20250912041627-feca4699adac h1:QYd7biccIKN5UckSA+p5LyDfffIGQgZon6Vr6RPbioY=
+github.com/RigelNana/arkstudy/proto v0.0.0-20250912041627-feca4699adac/go.mod h1:WqFb6NKb8ZEmzC6aC3LEuP+HEGK+NOlMd3VYzHelkIE=
 github.com/bytedance/sonic v1.11.6 h1:oUp34TzMlL+OY1OUWxHqsdkgC/Zfc85zGqw9siXjrc0=
 github.com/bytedance/sonic v1.11.6/go.mod h1:LysEHSvpvDySVdC2f87zGWf6CIKJcAvqab1ZaiQtds4=
 github.com/bytedance/sonic/loader v0.1.1 h1:c+e5Pt1k/cy5wMveRDyk2X4B9hF4g7an8N3zCYjJFNM=

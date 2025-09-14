@@ -1,0 +1,151 @@
+syntax = "proto3";
+package material;
+option go_package = "github.com/RigelNana/arkstudy/proto/material";
+
+service MaterialService {
+    rpc UploadMaterial (stream UploadMaterialRequest) returns (UploadMaterialResponse);
+    rpc DeleteMaterial (DeleteMaterialRequest) returns (DeleteMaterialResponse);
+    rpc ListMaterials (ListMaterialsRequest) returns (ListMaterialsResponse);
+    
+    // AI 处理相关服务
+    rpc ProcessMaterial (ProcessMaterialRequest) returns (ProcessMaterialResponse);
+    rpc GetProcessingResult (GetProcessingResultRequest) returns (GetProcessingResultResponse);
+    rpc ListProcessingResults (ListProcessingResultsRequest) returns (ListProcessingResultsResponse);
+    rpc UpdateProcessingResult (UpdateProcessingResultRequest) returns (UpdateProcessingResultResponse);
+}
+
+// 处理类型枚举
+enum ProcessingType {
+    OCR = 0;
+    ASR = 1;
+    LLM_ANALYSIS = 2;
+}
+
+// 处理状态枚举
+enum ProcessingStatus {
+    PENDING = 0;
+    PROCESSING = 1;
+    COMPLETED = 2;
+    FAILED = 3;
+}
+
+message MaterialInfo {
+    string id = 1;
+    string user_id = 2;
+    string title = 3;
+    string original_filename = 4;
+    string file_type = 5;
+    int64 size_bytes = 6;
+    string status = 7;
+    string created_at = 8;
+}
+
+message UploadMaterialRequest {
+    oneof data {
+        MaterialInfo metadata = 1;
+        bytes chunk_data = 2;
+    }
+}
+
+message UploadMaterialResponse {
+    bool success = 1;
+    string message = 2;
+    string material_id = 3;
+}
+
+message DeleteMaterialRequest {
+    string material_id = 1;
+    string user_id = 2;
+}
+
+message DeleteMaterialResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message ListMaterialsRequest {
+    string user_id = 1;
+    int32 page = 2;
+    int32 page_size = 3;
+}
+
+message ListMaterialsResponse {
+    repeated MaterialInfo materials = 1;
+    int64 total = 2;
+}
+
+// ======================= AI 处理相关消息 =======================
+
+// 处理结果信息
+message ProcessingResult {
+    string id = 1;
+    string material_id = 2;
+    string task_id = 3;
+    ProcessingType type = 4;
+    ProcessingStatus status = 5;
+    string content = 6;
+    map<string, string> metadata = 7;
+    string created_at = 8;
+    string updated_at = 9;
+    string error_message = 10;
+}
+
+// 开始处理材料请求
+message ProcessMaterialRequest {
+    string material_id = 1;
+    string user_id = 2;
+    ProcessingType type = 3;
+    map<string, string> options = 4; // 处理选项，如语言、模型等
+}
+
+// 开始处理材料响应
+message ProcessMaterialResponse {
+    bool success = 1;
+    string message = 2;
+    string task_id = 3;
+    ProcessingResult result = 4;
+}
+
+// 获取处理结果请求
+message GetProcessingResultRequest {
+    string material_id = 1;
+    string user_id = 2;
+    ProcessingType type = 3;
+}
+
+// 获取处理结果响应
+message GetProcessingResultResponse {
+    bool found = 1;
+    string message = 2;
+    ProcessingResult result = 3;
+}
+
+// 列出处理结果请求
+message ListProcessingResultsRequest {
+    string material_id = 1;
+    string user_id = 2;
+    ProcessingType type = 3; // 可选，筛选特定类型
+    int32 page = 4;
+    int32 page_size = 5;
+}
+
+// 列出处理结果响应
+message ListProcessingResultsResponse {
+    repeated ProcessingResult results = 1;
+    int64 total = 2;
+}
+
+// 更新处理结果请求 (供AI服务回调使用)
+message UpdateProcessingResultRequest {
+    string task_id = 1;
+    ProcessingStatus status = 2;
+    string content = 3;
+    map<string, string> metadata = 4;
+    string error_message = 5;
+}
+
+// 更新处理结果响应
+message UpdateProcessingResultResponse {
+    bool success = 1;
+    string message = 2;
+}

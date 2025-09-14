@@ -11,8 +11,13 @@ import (
 func main() {
 	authClient := handler.NewAuthServiceClient()
 	userClient := handler.NewUserServiceClient()
+	materialClient := handler.NewMaterialServiceClient()
+
 	authHandler := handler.NewAuthHandler(authClient, userClient)
-	r := router.Setup(authHandler)
+	userHandler := handler.NewUserHandler(userClient)
+	materialHandler := handler.NewMaterialHandler(materialClient)
+
+	r := router.Setup(authHandler, userHandler, materialHandler)
 	port := os.Getenv("GATEWAY_PORT")
 	if port == "" {
 		port = "8080"

@@ -1,0 +1,22 @@
+name: CI
+on:
+    push:
+        branches: ["main"]
+    pull_request:
+        branches: ["main"]
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout repo
+              uses: actions/checkout@v4
+            
+            - name: Set up Go
+              run: |
+                sudo rm -rf /usr/local/go
+                curl -LO https://go.dev/dl/go1.24.7.linux-amd64.tar.gz
+                sudo tar -C /usr/local -xzf go1.24.7.linux-amd64.tar.gz
+                echo "/usr/local/go/bin" >> $GITHUB_PATH
+                go version
+        

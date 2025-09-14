@@ -1,6 +1,5 @@
 module github.com/RigelNana/arkstudy/services/auth-service
 
-
 go 1.24.7
 
 require (
