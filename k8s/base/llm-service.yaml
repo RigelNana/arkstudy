@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-service
+  namespace: arkstudy
+spec:
+  selector: { app: llm-service }
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+    - name: grpc
+      port: 50054
+      targetPort: 50054
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-service
+  namespace: arkstudy
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: llm-service }
+  template:
+    metadata:
+      labels: { app: llm-service }
+    spec:
+      containers:
+        - name: llm-service
+          image: rigelnana/arkstudy-llm-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+            - containerPort: 50054
+          envFrom:
+            - configMapRef: { name: llm-config }
+            - secretRef: { name: db-app-secret }
+            - secretRef: { name: openai-secret }
+          readinessProbe:
+            tcpSocket: { port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: { port: 8000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "200m", memory: "512Mi" }
+            limits:   { cpu: "1", memory: "2Gi" }

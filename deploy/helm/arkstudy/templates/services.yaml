@@ -1,0 +1,35 @@
+{{- $ns := .Values.namespace | default .Release.Namespace -}}
+{{- range $svcName, $cfg := .Values.services }}
+{{- if $cfg.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ printf "%s-%s" (include "arkstudy.fullname" $) $svcName }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "arkstudy.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $svcName }}
+  {{- with $cfg.serviceAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ $cfg.service.type | default "ClusterIP" }}
+  selector:
+    app.kubernetes.io/name: {{ include "arkstudy.name" $ }}
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: {{ $svcName }}
+  ports:
+    - name: http
+      port: {{ $cfg.service.port | default 80 }}
+      targetPort: {{ $cfg.containerPort | default 8080 }}
+    {{- with $cfg.extraPorts }}
+    {{- range . }}
+    - name: {{ .name }}
+      port: {{ .port }}
+      targetPort: {{ .targetPort | default .port }}
+    {{- end }}
+    {{- end }}
+---
+{{- end }}
+{{- end }}

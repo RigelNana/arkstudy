@@ -1,17 +1,25 @@
 package router
 
 import (
+	"github.com/RigelNana/arkstudy/gateway/docs"
 	"github.com/RigelNana/arkstudy/gateway/handler"
 	"github.com/RigelNana/arkstudy/gateway/middleware"
+	ginMetrics "github.com/RigelNana/arkstudy/pkg/metrics/gin"
 
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(authHandler *handler.AuthHandler, userHandler *handler.UserHandler, materialHandler *handler.MaterialHandler) *gin.Engine {
+func Setup(authHandler *handler.AuthHandler, userHandler *handler.UserHandler, materialHandler *handler.MaterialHandler, llmHandler *handler.LLMHandler) *gin.Engine {
 	r := gin.Default()
+
+	// 添加 Prometheus 中间件
+	r.Use(ginMetrics.PrometheusMiddleware("gateway"))
 
 	// 创建认证中间件
 	authValidator := middleware.NewAuthValidator()
+
+	// 文档与 OpenAPI 路由
+	docs.RegisterRoutes(r)
 
 	api := r.Group("/api")
 	{
@@ -41,6 +49,12 @@ func Setup(authHandler *handler.AuthHandler, userHandler *handler.UserHandler, m
 			protected.GET("/processing/results", materialHandler.ListProcessingResults)
 			protected.GET("/processing/results/:material_id", materialHandler.GetProcessingResult)
 			protected.PUT("/processing/results/:task_id", materialHandler.UpdateProcessingResult)
+
+			// LLM 对外最小可行路由
+			protected.POST("/ai/ask", llmHandler.Ask)
+			protected.GET("/ai/ask/stream", llmHandler.AskStream)
+			protected.POST("/ai/ask/stream", llmHandler.AskStream)
+			protected.GET("/ai/search", llmHandler.Search)
 		}
 	}
 	return r

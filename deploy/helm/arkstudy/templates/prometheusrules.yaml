@@ -1,0 +1,105 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "arkstudy.fullname" . }}-alerts
+  namespace: {{ .Values.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "arkstudy.labels" . | nindent 4 }}
+    release: kube-prometheus-stack
+spec:
+  groups:
+  - name: arkstudy.rules
+    rules:
+    
+    # 服务可用性告警
+    - alert: ServiceDown
+      expr: up{job=~"arkstudy-.*"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Service {{`{{ $labels.job }}`}} is down"
+        description: "Service {{`{{ $labels.job }}`}} has been down for more than 1 minute."
+
+    # HTTP 错误率告警
+    - alert: HighHTTPErrorRate
+      expr: rate(requests_total{status=~"5.."}[5m]) > 0.1
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High HTTP error rate on {{`{{ $labels.service }}`}}"
+        description: "HTTP error rate is {{`{{ $value }}`}} errors per second."
+
+    # gRPC 错误率告警
+    - alert: HighGRPCErrorRate
+      expr: rate(grpc_server_handled_total{grpc_code!="OK"}[5m]) > 0.1
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High gRPC error rate on {{`{{ $labels.service }}`}}"
+        description: "gRPC error rate is {{`{{ $value }}`}} errors per second."
+
+    # 响应延迟告警
+    - alert: HighLatency
+      expr: histogram_quantile(0.95, rate(request_duration_seconds_bucket[5m])) > 0.5
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High latency on {{`{{ $labels.service }}`}}"
+        description: "95th percentile latency is {{`{{ $value }}`}} seconds."
+
+    # 数据库连接告警
+    - alert: DatabaseConnectionFailure
+      expr: increase(database_connection_errors_total[5m]) > 5
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Database connection failures"
+        description: "More than 5 database connection failures in the last 5 minutes."
+
+    # Kafka 消息处理告警
+    - alert: KafkaMessageProcessingFailure
+      expr: increase(kafka_messages_total{status="error"}[5m]) > 10
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Kafka message processing failures"
+        description: "More than 10 Kafka message processing failures in the last 5 minutes."
+
+    # 向量检索性能告警
+    - alert: SlowVectorSearch
+      expr: histogram_quantile(0.95, rate(vector_search_duration_seconds_bucket[5m])) > 2.0
+      for: 3m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Slow vector search performance"
+        description: "95th percentile vector search latency is {{`{{ $value }}`}} seconds."
+
+    # 材料处理失败告警
+    - alert: MaterialProcessingFailure
+      expr: increase(materials_processed_total{status="error"}[10m]) > 5
+      for: 2m
+      labels:
+        severity: warning
+      annotations:
+        summary: "Material processing failures"
+        description: "More than 5 material processing failures in the last 10 minutes."
+
+    # 活跃用户数异常告警
+    - alert: LowActiveUsers
+      expr: active_users_total < 1
+      for: 5m
+      labels:
+        severity: info
+      annotations:
+        summary: "Low active users"
+        description: "Number of active users is {{`{{ $value }}`}}."
+        
+{{- end }}

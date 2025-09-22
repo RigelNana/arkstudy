@@ -5,6 +5,8 @@ import (
 	"net"
 	"os"
 
+	"github.com/RigelNana/arkstudy/pkg/metrics"
+	grpcMetrics "github.com/RigelNana/arkstudy/pkg/metrics/grpc"
 	"github.com/RigelNana/arkstudy/proto/user"
 	"github.com/RigelNana/arkstudy/services/user-service/database"
 	urpc "github.com/RigelNana/arkstudy/services/user-service/handler/rpc"
@@ -13,6 +15,7 @@ import (
 	"github.com/RigelNana/arkstudy/services/user-service/service"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"gorm.io/gorm"
 )
 
@@ -23,14 +26,25 @@ func autoMigrate(db *gorm.DB) {
 }
 
 func main() {
+	// 启动 Prometheus metrics 服务器
+	metrics.StartMetricsServer("2112")
+	log.Printf("Prometheus metrics server started on :2112")
+
 	db := database.InitDB()
 	autoMigrate(db)
 
 	repo := repository.NewUserRepository(db)
 	svc := service.NewUserService(repo)
 
-	grpcServer := grpc.NewServer()
+	// 创建带监控的 gRPC 服务器
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(grpcMetrics.UnaryServerInterceptor("user-service")),
+		grpc.StreamInterceptor(grpcMetrics.StreamServerInterceptor("user-service")),
+	)
+
 	user.RegisterUserServiceServer(grpcServer, urpc.NewUserRPCServer(svc))
+	// Enable server reflection
+	reflection.Register(grpcServer)
 
 	port := os.Getenv("USER_GRPC_PORT")
 	if port == "" {

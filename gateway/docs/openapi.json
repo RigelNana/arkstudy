@@ -1,0 +1,67 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "arkstudy Gateway API",
+    "version": "0.1.0"
+  },
+  "servers": [ { "url": "/" } ],
+  "paths": {
+    "/api/register": {
+      "post": {
+        "summary": "Register a user",
+        "requestBody": {"required": true},
+        "responses": {"200": {"description": "OK"}}
+      }
+    },
+    "/api/login": {
+      "post": {"summary": "Login","responses": {"200": {"description": "OK"}}}
+    },
+    "/api/validate": {
+      "get": {"summary": "Validate token","responses": {"200": {"description": "OK"}}}
+    },
+    "/api/users": {
+      "get": {"summary": "List users","responses": {"200": {"description": "OK"}}}
+    },
+    "/api/users/{id}": {
+      "get": {"summary": "Get user by ID","parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"responses": {"200": {"description": "OK"}}}
+    },
+    "/api/users/username/{username}": {
+      "get": {"summary": "Get user by username","parameters": [{"name":"username","in":"path","required":true,"schema":{"type":"string"}}],"responses": {"200": {"description": "OK"}}}
+    },
+    "/api/users/email/{email}": {
+      "get": {"summary": "Get user by email","parameters": [{"name":"email","in":"path","required":true,"schema":{"type":"string"}}],"responses": {"200": {"description": "OK"}}}
+    },
+    "/api/materials/upload": {
+      "post": {"summary": "Upload material","responses": {"200": {"description": "OK"}}}
+    },
+    "/api/materials": {
+      "get": {"summary": "List materials","responses": {"200": {"description": "OK"}}}
+    },
+    "/api/materials/{id}": {
+      "get": {"summary": "Get material by ID","parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"responses": {"200": {"description": "OK"}}},
+      "delete": {"summary": "Delete material","parameters": [{"name":"id","in":"path","required":true,"schema":{"type":"string"}}],"responses": {"200": {"description": "OK"}}}
+    },
+    "/api/materials/process": {
+      "post": {"summary": "Process material","responses": {"200": {"description": "OK"}}}
+    },
+    "/api/processing/results": {
+      "get": {"summary": "List processing results","responses": {"200": {"description": "OK"}}}
+    },
+    "/api/processing/results/{material_id}": {
+      "get": {"summary": "Get processing result by material ID","parameters": [{"name":"material_id","in":"path","required":true,"schema":{"type":"string"}}],"responses": {"200": {"description": "OK"}}}
+    },
+    "/api/processing/results/{task_id}": {
+      "put": {"summary": "Update processing result","parameters": [{"name":"task_id","in":"path","required":true,"schema":{"type":"string"}}],"responses": {"200": {"description": "OK"}}}
+    },
+    "/api/ai/ask": {
+      "post": {"summary": "Ask LLM","responses": {"200": {"description": "OK"}}}
+    },
+    "/api/ai/ask/stream": {
+      "get": {"summary": "Ask LLM stream","responses": {"200": {"description": "OK"}}},
+      "post": {"summary": "Ask LLM stream","responses": {"200": {"description": "OK"}}}
+    },
+    "/api/ai/search": {
+      "get": {"summary": "Semantic search","responses": {"200": {"description": "OK"}}}
+    }
+  }
+}

@@ -5,6 +5,8 @@ import (
 	"net"
 	"os"
 
+	"github.com/RigelNana/arkstudy/pkg/metrics"
+	grpcMetrics "github.com/RigelNana/arkstudy/pkg/metrics/grpc"
 	pb "github.com/RigelNana/arkstudy/proto/auth"
 	"github.com/RigelNana/arkstudy/services/auth-service/database"
 	"github.com/RigelNana/arkstudy/services/auth-service/handler/rpc"
@@ -13,6 +15,7 @@ import (
 	"github.com/RigelNana/arkstudy/services/auth-service/service"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"gorm.io/gorm"
 )
 
@@ -23,13 +26,25 @@ func autoMigrate(db *gorm.DB) {
 }
 
 func main() {
+	// 启动 Prometheus metrics 服务器
+	metrics.StartMetricsServer("2112")
+	log.Printf("Prometheus metrics server started on :2112")
+
 	db := database.InitDB()
 	autoMigrate(db)
 
 	repo := repository.NewAuthRepository(db)
 	svc := service.NewAuthService(repo)
-	grpcServer := grpc.NewServer()
+
+	// 创建带监控的 gRPC 服务器
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(grpcMetrics.UnaryServerInterceptor("auth-service")),
+		grpc.StreamInterceptor(grpcMetrics.StreamServerInterceptor("auth-service")),
+	)
+
 	pb.RegisterAuthServiceServer(grpcServer, rpc.NewAuthRPCServer(svc))
+	// Enable server reflection for grpcui/insomnia
+	reflection.Register(grpcServer)
 
 	port := os.Getenv("GRPC_PORT")
 	if port == "" {

@@ -12,6 +12,7 @@ import (
 	"github.com/RigelNana/arkstudy/services/material-service/repository"
 	"github.com/RigelNana/arkstudy/services/material-service/service"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 	"gorm.io/gorm"
 )
 
@@ -35,6 +36,8 @@ func main() {
 	}
 	grpcServer := grpc.NewServer()
 	material.RegisterMaterialServiceServer(grpcServer, rpc.NewMaterialRPCServer(service))
+	// Enable server reflection
+	reflection.Register(grpcServer)
 	port := config.Database.MaterialGRPCAddr
 	if port == "" {
 		port = "50053"

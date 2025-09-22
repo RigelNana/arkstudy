@@ -1,0 +1,35 @@
+{{- $ns := .Values.namespace | default .Release.Namespace -}}
+
+{{- if .Values.configMaps }}
+{{- range $name, $data := .Values.configMaps }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "arkstudy.labels" $ | nindent 4 }}
+data:
+  {{- range $key, $value := $data }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- range $svcName, $cfg := .Values.services }}
+{{- if and $cfg.enabled $cfg.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ printf "%s-%s" (include "arkstudy.fullname" $) $svcName }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "arkstudy.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $svcName }}
+data:
+{{- range $k, $v := $cfg.config }}
+  {{ $k }}: {{ $v | quote }}
+{{- end }}
+---
+{{- end }}
+{{- end }}

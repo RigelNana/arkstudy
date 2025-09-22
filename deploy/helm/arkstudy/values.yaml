@@ -1,0 +1,317 @@
+# Global settings
+namespace: arkstudy
+imagePullSecrets: []
+# e.g. [{ name: my-regcred }]
+
+# Common labels to add to all resources
+commonLabels: {}
+
+# Enable PodMonitor/ServiceMonitor for Prometheus Operator
+monitoring:
+  enabled: true
+  scrapeInterval: 15s
+
+# Default resources for all workloads (can be overridden per service)
+resources: {}
+  # limits:
+  #   cpu: 500m
+  #   memory: 512Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+# Top-level service registry. Each entry becomes a Deployment + Service
+# Key is service name; value is settings for that service.
+services:
+  gateway:
+    enabled: true
+    image: "rigelnana/arkstudy-gateway:latest"
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 8080
+    containerPort: 8080
+    env: []
+    envFrom: [] # e.g. [{ configMapRef: { name: gateway-config } }, { secretRef: { name: gateway-secret } }]
+    config: {} # optional key/value to create a ConfigMap for this service
+    secrets: {} # optional key/value to create a Secret (stringData)
+    resources: {}
+    podAnnotations: {}
+    serviceAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    securityContext: {}
+    podSecurityContext: {}
+    command: []
+    args: []
+    volumes: []
+    volumeMounts: []
+    extraPorts: [] # e.g. [{ name: metrics, port: 9090, targetPort: 9090 }]
+    serviceAccount:
+      create: false
+      name: ""
+      annotations: {}
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 80
+      # targetMemoryUtilizationPercentage: 80
+    pdb:
+      enabled: false
+      minAvailable: 1
+      # or maxUnavailable: 1
+    ingress:
+      enabled: false
+      className: ""
+      annotations: {}
+      hosts: [] # e.g. [{ host: example.com, paths: [{ path: "/", pathType: Prefix }] }]
+      tls: []
+    serviceMonitorEnabled: false
+    livenessProbe:
+      httpGet: { path: /healthz, port: http }
+      initialDelaySeconds: 10
+      periodSeconds: 10
+    readinessProbe:
+      httpGet: { path: /readyz, port: http }
+      initialDelaySeconds: 5
+      periodSeconds: 5
+
+  auth-service:
+    enabled: true
+    image: "rigelnana/arkstudy-auth-service:latest"
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 8081
+    containerPort: 8081
+    envFrom: []
+    config: {}
+    secrets: {}
+    resources: {}
+    podAnnotations: {}
+    serviceAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    securityContext: {}
+    podSecurityContext: {}
+    command: []
+    args: []
+    volumes: []
+    volumeMounts: []
+    extraPorts: []
+    serviceAccount:
+      create: false
+      name: ""
+      annotations: {}
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 80
+    pdb:
+      enabled: false
+      minAvailable: 1
+    ingress:
+      enabled: false
+    serviceMonitorEnabled: false
+
+  user-service:
+    enabled: true
+    image: "rigelnana/arkstudy-user-service:latest"
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 8082
+    containerPort: 8082
+    envFrom: []
+    config: {}
+    secrets: {}
+    resources: {}
+    podAnnotations: {}
+    serviceAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    securityContext: {}
+    podSecurityContext: {}
+    command: []
+    args: []
+    volumes: []
+    volumeMounts: []
+    extraPorts: []
+    serviceAccount:
+      create: false
+      name: ""
+      annotations: {}
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 80
+    pdb:
+      enabled: false
+      minAvailable: 1
+    ingress:
+      enabled: false
+    serviceMonitorEnabled: false
+
+  material-service:
+    enabled: true
+    image: "rigelnana/arkstudy-material-service:latest"
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 8083
+    containerPort: 8083
+    envFrom: []
+    config: {}
+    secrets: {}
+    resources: {}
+    podAnnotations: {}
+    serviceAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    securityContext: {}
+    podSecurityContext: {}
+    command: []
+    args: []
+    volumes: []
+    volumeMounts: []
+    extraPorts: []
+    serviceAccount:
+      create: false
+      name: ""
+      annotations: {}
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 80
+    pdb:
+      enabled: false
+      minAvailable: 1
+    ingress:
+      enabled: false
+    serviceMonitorEnabled: false
+
+  ocr-service:
+    enabled: true
+    image: "rigelnana/arkstudy-ocr-service:latest"
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 8084
+    containerPort: 8084
+    envFrom: []
+    config: {}
+    secrets: {}
+    resources: {}
+    podAnnotations: {}
+    serviceAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    securityContext: {}
+    podSecurityContext: {}
+    command: []
+    args: []
+    volumes: []
+    volumeMounts: []
+    extraPorts: []
+    serviceAccount:
+      create: false
+      name: ""
+      annotations: {}
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 80
+    pdb:
+      enabled: false
+      minAvailable: 1
+    ingress:
+      enabled: false
+    serviceMonitorEnabled: false
+
+  llm-service:
+    enabled: true
+    image: "rigelnana/arkstudy-llm-service:latest"
+    replicas: 1
+    service:
+      type: ClusterIP
+      port: 8000
+    containerPort: 8000
+    envFrom: []
+    config: {}
+    secrets: {}
+    resources: {}
+    podAnnotations: {}
+    serviceAnnotations: {}
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+    securityContext: {}
+    podSecurityContext: {}
+    command: []
+    args: []
+    volumes: []
+    volumeMounts: []
+    extraPorts: []
+    serviceAccount:
+      create: false
+      name: ""
+      annotations: {}
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 3
+      targetCPUUtilizationPercentage: 80
+    pdb:
+      enabled: false
+      minAvailable: 1
+    ingress:
+      enabled: false
+    serviceMonitorEnabled: false
+
+# Third-party services (dev-grade). Each can be enabled in values-dev.yaml
+thirdParty:
+  postgres:
+    enabled: false
+    image: postgres:16
+    port: 5432
+    storage:
+      size: 5Gi
+      storageClassName: ""
+    database: arkdb
+    username: postgres
+    passwordSecretRef: { name: postgres-secret-dev, key: password }
+    initSQL:
+      enabled: true
+      # default init file in chart files/
+      file: files/init.sql
+      # existingConfigMap: "postgres-init-dev" # Optional: use existing CM instead of creating one
+  redis:
+    enabled: false
+    image: redis:7-alpine
+    port: 6379
+    storage:
+      enabled: false
+      size: 1Gi
+      storageClassName: ""
+  kafka:
+    enabled: false
+    image: confluentinc/cp-kafka:latest
+    port: 9092
+    # KRaft single-node minimal config via env
+    clusterId: "6LZMxk8NTXidS6TGH1Zk1w"
+    storage:
+      enabled: false
+      size: 5Gi
+      storageClassName: ""
+# Optional: Ingress per service
+# Note: per-service ingress is configured under services.<name>.ingress

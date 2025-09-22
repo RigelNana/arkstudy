@@ -1,0 +1,53 @@
+{{- if and .Values.monitoring.enabled (.Capabilities.APIVersions.Has "monitoring.coreos.com/v1") -}}
+{{- $ns := .Values.namespace | default .Release.Namespace -}}
+{{- range $svcName, $cfg := .Values.services }}
+{{- if and $cfg.enabled $cfg.serviceMonitorEnabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ printf "%s-%s" (include "arkstudy.fullname" $) $svcName }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "arkstudy.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $svcName }}
+    release: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "arkstudy.name" $ }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: {{ $svcName }}
+  namespaceSelector:
+    matchNames:
+      - {{ $ns }}
+  endpoints:
+  {{- if $cfg.service.extraPorts }}
+  {{- range $port := $cfg.service.extraPorts }}
+  {{- if eq $port.name "metrics" }}
+  - port: {{ $port.name }}
+    path: "/metrics"
+    interval: {{ $.Values.monitoring.scrapeInterval | default "15s" }}
+  {{- end }}
+  {{- end }}
+  {{- else if and $cfg.service.annotations (index $cfg.service.annotations "prometheus.io/scrape") }}
+  - port: http
+    path: {{ index $cfg.service.annotations "prometheus.io/path" | default "/metrics" }}
+    interval: {{ $.Values.monitoring.scrapeInterval | default "15s" }}
+  {{- else }}
+  - port: http
+    path: "/metrics"
+    interval: {{ $.Values.monitoring.scrapeInterval | default "15s" }}
+  {{- end }}
+  {{- if $cfg.service.extraPorts }}
+  {{- range $port := $cfg.service.extraPorts }}
+  {{- if eq $port.name "metrics" }}
+  - port: {{ $port.name }}
+    path: /metrics
+    interval: {{ $.Values.monitoring.scrapeInterval | default "15s" }}
+  {{- end }}
+  {{- end }}
+  {{- end }}
+---
+{{- end }}
+{{- end }}
+{{- end }}

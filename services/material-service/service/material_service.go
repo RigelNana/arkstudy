@@ -3,17 +3,23 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 	"path/filepath"
 	"strings"
 	"time"
 
+	aipb "github.com/RigelNana/arkstudy/proto/ai"
+	llmpb "github.com/RigelNana/arkstudy/proto/llm"
 	"github.com/RigelNana/arkstudy/services/material-service/config"
 	"github.com/RigelNana/arkstudy/services/material-service/models"
 	"github.com/RigelNana/arkstudy/services/material-service/repository"
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	kafka "github.com/segmentio/kafka-go"
+	"google.golang.org/grpc"
 )
 
 type MaterialService interface {
@@ -36,6 +42,7 @@ type MaterialServiceImpl struct {
 	processingRepo repository.ProcessingResultRepository
 	minioClient    *minio.Client
 	config         *config.Config
+	kafkaWriter    *kafka.Writer
 }
 
 func NewMaterialService(repo repository.MaterialRepository, processingRepo repository.ProcessingResultRepository, cfg *config.Config) (MaterialService, error) {
@@ -61,12 +68,87 @@ func NewMaterialService(repo repository.MaterialRepository, processingRepo repos
 		}
 	}
 
+	log.Printf("Initializing MaterialService with Kafka writer...")
+	kafkaWriter := newFileProcessingKafkaWriter(cfg)
+	if kafkaWriter != nil {
+		log.Printf("Kafka writer initialized successfully")
+	} else {
+		log.Printf("Kafka writer is nil - not configured")
+	}
+
 	return &MaterialServiceImpl{
 		repo:           repo,
 		processingRepo: processingRepo,
 		minioClient:    minioClient,
 		config:         cfg,
+		kafkaWriter:    kafkaWriter,
 	}, nil
+}
+
+// newKafkaWriter creates a Kafka writer if brokers and topic are configured; otherwise returns nil.
+func newKafkaWriter(cfg *config.Config) *kafka.Writer {
+	brokers := strings.TrimSpace(cfg.Database.KafkaBrokers)
+	topic := strings.TrimSpace(cfg.Database.KafkaTopicOCRReqs)
+	if brokers == "" || topic == "" {
+		return nil
+	}
+	// support comma-separated brokers
+	var bs []string
+	for _, b := range strings.Split(brokers, ",") {
+		b = strings.TrimSpace(b)
+		if b != "" {
+			bs = append(bs, b)
+		}
+	}
+	if len(bs) == 0 {
+		return nil
+	}
+	return &kafka.Writer{
+		Addr:         kafka.TCP(bs...),
+		Topic:        topic,
+		Balancer:     &kafka.LeastBytes{},
+		RequiredAcks: kafka.RequireOne,
+		Compression:  kafka.Snappy,
+	}
+}
+
+// newFileProcessingKafkaWriter 创建文件处理的 Kafka writer
+func newFileProcessingKafkaWriter(cfg *config.Config) *kafka.Writer {
+	brokers := strings.TrimSpace(cfg.Database.KafkaBrokers)
+	topic := strings.TrimSpace(cfg.Database.KafkaTopicFileProcess)
+	log.Printf("Kafka config: brokers=%s, topic=%s", brokers, topic)
+	if brokers == "" || topic == "" {
+		log.Printf("Kafka writer not created: missing brokers or topic")
+		return nil
+	}
+	// support comma-separated brokers
+	var bs []string
+	for _, b := range strings.Split(brokers, ",") {
+		b = strings.TrimSpace(b)
+		if b != "" {
+			bs = append(bs, b)
+		}
+	}
+	if len(bs) == 0 {
+		return nil
+	}
+	return &kafka.Writer{
+		Addr:         kafka.TCP(bs...),
+		Topic:        topic,
+		Balancer:     &kafka.LeastBytes{},
+		RequiredAcks: kafka.RequireOne,
+		Compression:  kafka.Snappy,
+	}
+}
+
+// ocrJob is the message schema sent to Kafka for OCR tasks.
+type ocrJob struct {
+	TaskID     string            `json:"task_id"`
+	MaterialID string            `json:"material_id"`
+	UserID     string            `json:"user_id"`
+	FileURL    string            `json:"file_url"`
+	FileType   string            `json:"file_type"`
+	Options    map[string]string `json:"options,omitempty"`
 }
 
 func (s *MaterialServiceImpl) UploadFile(userID uuid.UUID, title, originalFilename string, fileData []byte) (*models.Material, error) {
@@ -114,6 +196,16 @@ func (s *MaterialServiceImpl) UploadFile(userID uuid.UUID, title, originalFilena
 	}
 
 	material.Status = "success"
+
+	// 发送 Kafka 消息给 llm-service 进行文档处理
+	log.Printf("Attempting to send file processing message for material %s", material.ID.String())
+	if err := s.sendFileProcessingMessage(material, userID); err != nil {
+		// 记录错误但不影响上传成功
+		log.Printf("Warning: failed to send file processing message: %v", err)
+	} else {
+		log.Printf("Successfully sent file processing message for material %s", material.ID.String())
+	}
+
 	return material, nil
 }
 
@@ -230,9 +322,43 @@ func (s *MaterialServiceImpl) ProcessMaterial(materialID uuid.UUID, userID uuid.
 		return nil, fmt.Errorf("failed to create processing record: %w", err)
 	}
 
-	// 5. 异步调用AI服务 (TODO: 在后续实现中添加)
-	go s.callAIService(material, result, processType, options)
+	// 5. 触发异步处理
+	if processType == models.ProcessingTypeOCR && s.kafkaWriter != nil {
+		// 5.1 生成短期下载 URL
+		urlStr, err := s.GetFileURL(material, 15*time.Minute)
+		if err != nil {
+			_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, fmt.Sprintf("presign: %v", err))
+			return result, nil
+		}
+		// 5.2 发送 Kafka 消息
+		job := ocrJob{
+			TaskID:     taskID,
+			MaterialID: materialID.String(),
+			UserID:     userID.String(),
+			FileURL:    urlStr,
+			FileType:   material.FileType,
+			Options:    options,
+		}
+		// encode JSON
+		payload, err := json.Marshal(job)
+		if err != nil {
+			_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, fmt.Sprintf("marshal job: %v", err))
+			return result, nil
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err = s.kafkaWriter.WriteMessages(ctx, kafka.Message{Value: payload})
+		if err != nil {
+			_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, fmt.Sprintf("kafka publish: %v", err))
+			return result, nil
+		}
+		// 更新状态为 processing，等待 ocr-service 回调
+		_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusProcessing, "", map[string]interface{}{"dispatched": true}, "")
+		return result, nil
+	}
 
+	// 回退：直接调用内部同步编排（gRPC 轮询）
+	go s.callAIService(material, result, processType, options)
 	return result, nil
 }
 
@@ -263,12 +389,182 @@ func (s *MaterialServiceImpl) UpdateProcessingResult(taskID string, status strin
 
 // callAIService 异步调用AI服务 (占位符，后续实现)
 func (s *MaterialServiceImpl) callAIService(material *models.Material, result *models.ProcessingResult, processType string, options map[string]string) {
-	// TODO: 实现AI服务调用
-	// 1. 获取文件URL
-	// 2. 根据processType调用相应的AI服务
-	// 3. 更新处理结果
+	// 更新处理状态为 processing
+	_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusProcessing, "", nil, "")
 
-	// 暂时模拟处理完成
-	s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusProcessing, "", nil, "")
-	// 这里将来会实际调用AI服务
+	switch processType {
+	case models.ProcessingTypeOCR:
+		s.handleOCR(material, result)
+		return
+	case models.ProcessingTypeASR:
+		// 预留：交给独立 asr-service
+		_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, "ASR handled by asr-service")
+		return
+	default:
+		_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, "unsupported processing type")
+		return
+	}
+}
+
+func (s *MaterialServiceImpl) handleOCR(material *models.Material, result *models.ProcessingResult) {
+	// 1) 生成短期下载 URL
+	urlStr, err := s.GetFileURL(material, 15*time.Minute)
+	if err != nil {
+		_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, fmt.Sprintf("presign: %v", err))
+		return
+	}
+
+	// 2) 连接 ocr-service
+	addr := s.config.Database.OCRGRPCAddr
+	if addr == "" {
+		addr = "localhost:50055"
+	}
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	if err != nil {
+		_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, fmt.Sprintf("dial ocr: %v", err))
+		return
+	}
+	defer conn.Close()
+	ocr := aipb.NewAIServiceClient(conn)
+
+	// 3) 发起 OCR 任务
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err = ocr.ProcessOCR(ctx, &aipb.OCRRequest{TaskId: result.TaskID, FileUrl: urlStr, FileType: material.FileType})
+	if err != nil {
+		_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, fmt.Sprintf("process ocr: %v", err))
+		return
+	}
+
+	// 4) 轮询任务状态
+	deadline := time.Now().Add(10 * time.Minute)
+	var finalText string
+	for time.Now().Before(deadline) {
+		stx, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+		status, err := ocr.GetTaskStatus(stx, &aipb.TaskStatusRequest{TaskId: result.TaskID})
+		cancel2()
+		if err != nil {
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		if status.Status == aipb.TaskStatus_COMPLETED {
+			// 再拉取一次最终结果（复用 ProcessOCR 返回完成结果的能力）
+			rctx, cancel3 := context.WithTimeout(context.Background(), 10*time.Second)
+			resp, err := ocr.ProcessOCR(rctx, &aipb.OCRRequest{TaskId: result.TaskID})
+			cancel3()
+			if err != nil {
+				_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, fmt.Sprintf("fetch ocr result: %v", err))
+				return
+			}
+			finalText = resp.GetText()
+			break
+		}
+		if status.Status == aipb.TaskStatus_FAILED {
+			_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, status.GetErrorMessage())
+			return
+		}
+		time.Sleep(2 * time.Second)
+	}
+	if finalText == "" {
+		_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, "ocr timeout or empty")
+		return
+	}
+
+	// 5) 将 OCR 文本拆分为 chunk（简单策略：按换行 / 500 字一段）并入库向量
+	chunks := splitTextToChunks(finalText)
+	if len(chunks) == 0 {
+		_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, "no chunks")
+		return
+	}
+
+	llmAddr := s.config.Database.LLMGRPCAddr
+	if llmAddr == "" {
+		llmAddr = "localhost:50054"
+	}
+	lconn, err := grpc.Dial(llmAddr, grpc.WithInsecure())
+	if err != nil {
+		_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, fmt.Sprintf("dial llm: %v", err))
+		return
+	}
+	defer lconn.Close()
+	llm := llmpb.NewLLMServiceClient(lconn)
+
+	ureq := &llmpb.UpsertChunksRequest{UserId: material.UserID.String(), MaterialId: material.ID.String()}
+	for i, c := range chunks {
+		ureq.Chunks = append(ureq.Chunks, &llmpb.UpsertChunkItem{Content: c, Page: int32(i), Metadata: map[string]string{"source": material.FileType}})
+	}
+	uctx, ucancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer ucancel()
+	uresp, err := llm.UpsertChunks(uctx, ureq)
+	if err != nil {
+		_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusFailed, "", nil, fmt.Sprintf("upsert chunks: %v", err))
+		return
+	}
+	_ = s.UpdateProcessingResult(result.TaskID, models.ProcessingStatusCompleted, "embedded", map[string]interface{}{"chunks": uresp.Inserted}, "")
+}
+
+func splitTextToChunks(text string) []string {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+	// 简单切分：按换行聚合，保证每段<=500字符
+	maxLen := 500
+	var out []string
+	var cur strings.Builder
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if cur.Len()+len(line)+1 > maxLen {
+			out = append(out, cur.String())
+			cur.Reset()
+		}
+		if cur.Len() > 0 {
+			cur.WriteString("\n")
+		}
+		cur.WriteString(line)
+	}
+	if cur.Len() > 0 {
+		out = append(out, cur.String())
+	}
+	return out
+}
+
+// sendFileProcessingMessage 发送文件处理消息到 Kafka
+func (s *MaterialServiceImpl) sendFileProcessingMessage(material *models.Material, userID uuid.UUID) error {
+	if s.kafkaWriter == nil {
+		return fmt.Errorf("kafka writer not configured")
+	}
+
+	// 构建消息
+	message := map[string]interface{}{
+		"file_id":   material.ID.String(),
+		"file_path": fmt.Sprintf("materials/%s/%s", material.MinioBucket, material.MinioObjectName),
+		"user_id":   userID.String(),
+		"file_type": material.FileType,
+		"title":     material.Title,
+		"timestamp": time.Now().Unix(),
+	}
+
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	// 发送到 Kafka
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err = s.kafkaWriter.WriteMessages(ctx, kafka.Message{
+		Key:   []byte(material.ID.String()),
+		Value: messageBytes,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to write message to kafka: %w", err)
+	}
+
+	return nil
 }

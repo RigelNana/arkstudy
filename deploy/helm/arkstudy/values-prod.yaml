@@ -1,0 +1,100 @@
+# Prod overrides for arkstudy Helm chart
+namespace: arkstudy
+
+monitoring:
+  enabled: true
+  scrapeInterval: 15s
+
+# 全局资源建议（可被每服务覆写）
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+
+services:
+  gateway:
+    enabled: true
+    image: rigelnana/arkstudy-gateway:latest
+    imagePullPolicy: IfNotPresent
+    replicas: 2
+    containerPort: 8080
+    service:
+      type: ClusterIP
+      port: 8080
+    serviceMonitorEnabled: true
+    pdb:
+      enabled: true
+      minAvailable: 1
+
+  auth-service:
+    enabled: true
+    image: rigelnana/arkstudy-auth-service:latest
+    imagePullPolicy: IfNotPresent
+    replicas: 2
+    containerPort: 8081
+    service:
+      type: ClusterIP
+      port: 8081
+    serviceMonitorEnabled: true
+    pdb:
+      enabled: true
+      minAvailable: 1
+
+  user-service:
+    enabled: true
+    image: rigelnana/arkstudy-user-service:latest
+    imagePullPolicy: IfNotPresent
+    replicas: 2
+    containerPort: 8082
+    service:
+      type: ClusterIP
+      port: 8082
+    serviceMonitorEnabled: true
+    pdb:
+      enabled: true
+      minAvailable: 1
+
+  material-service:
+    enabled: true
+    image: rigelnana/arkstudy-material-service:latest
+    imagePullPolicy: IfNotPresent
+    replicas: 2
+    containerPort: 8083
+    service:
+      type: ClusterIP
+      port: 8083
+    serviceMonitorEnabled: true
+    pdb:
+      enabled: true
+      minAvailable: 1
+
+  ocr-service:
+    enabled: true
+    image: rigelnana/arkstudy-ocr-service:latest
+    imagePullPolicy: IfNotPresent
+    replicas: 2
+    containerPort: 8084
+    service:
+      type: ClusterIP
+      port: 8084
+    serviceMonitorEnabled: true
+    pdb:
+      enabled: true
+      minAvailable: 1
+
+  llm-service:
+    enabled: true
+    image: rigelnana/arkstudy-llm-service:latest
+    imagePullPolicy: IfNotPresent
+    replicas: 2
+    containerPort: 8000
+    service:
+      type: ClusterIP
+      port: 8000
+    serviceMonitorEnabled: true
+    pdb:
+      enabled: true
+      minAvailable: 1

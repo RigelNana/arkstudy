@@ -39,8 +39,15 @@ func NewAuthService(repo repository.AuthRepository) AuthService {
 	minutes, _ := strconv.Atoi(expireStr)
 	// 建立 user-service gRPC 连接
 	userAddr := os.Getenv("USER_GRPC_ADDR")
-	if userAddr == "" { // 单机默认端口
-		userAddr = "localhost:50052"
+	if userAddr == "" {
+		// 尝试使用 K8s 服务发现
+		userHost := os.Getenv("ARKSTUDY_USER_SERVICE_SERVICE_HOST")
+		userPort := os.Getenv("ARKSTUDY_USER_SERVICE_SERVICE_PORT")
+		if userHost != "" && userPort != "" {
+			userAddr = userHost + ":" + userPort
+		} else {
+			userAddr = "localhost:50052" // 单机默认端口
+		}
 	}
 	conn, err := grpc.Dial(userAddr, grpc.WithInsecure())
 	var client user.UserServiceClient

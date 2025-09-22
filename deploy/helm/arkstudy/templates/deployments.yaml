@@ -1,0 +1,123 @@
+{{- $ns := .Values.namespace | default .Release.Namespace -}}
+{{- range $svcName, $cfg := .Values.services }}
+{{- if $cfg.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ printf "%s-%s" (include "arkstudy.fullname" $) $svcName }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "arkstudy.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $svcName }}
+  {{- with $cfg.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ $cfg.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "arkstudy.name" $ }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: {{ $svcName }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "arkstudy.name" $ }}
+        app.kubernetes.io/instance: {{ $.Release.Name }}
+        app.kubernetes.io/component: {{ $svcName }}
+      {{- with $cfg.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- if $cfg.serviceAccount }}
+      {{- if $cfg.serviceAccount.create }}
+      serviceAccountName: {{ default (printf "%s-%s" (include "arkstudy.fullname" $) $svcName) $cfg.serviceAccount.name }}
+      {{- else if $cfg.serviceAccount.name }}
+      serviceAccountName: {{ $cfg.serviceAccount.name }}
+      {{- end }}
+      {{- end }}
+      {{- if $.Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml $.Values.imagePullSecrets | nindent 8 }}
+      {{- end }}
+      {{- with $cfg.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $cfg.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $cfg.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $cfg.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ $svcName }}
+          image: {{ $cfg.image | quote }}
+          imagePullPolicy: {{ $cfg.imagePullPolicy | default "IfNotPresent" }}
+          {{- with $cfg.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $cfg.args }}
+          args:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $cfg.podSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ $cfg.containerPort | default 8080 }}
+          {{- if or $cfg.envFrom $cfg.config $cfg.secrets }}
+          envFrom:
+            {{- if $cfg.envFrom }}
+            {{- toYaml $cfg.envFrom | nindent 12 }}
+            {{- end }}
+            {{- if $cfg.config }}
+            - configMapRef:
+                name: {{ printf "%s-%s" (include "arkstudy.fullname" $) $svcName }}
+            {{- end }}
+            {{- if $cfg.secrets }}
+            - secretRef:
+                name: {{ printf "%s-%s" (include "arkstudy.fullname" $) $svcName }}
+            {{- end }}
+          {{- end }}
+          {{- with $cfg.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if $cfg.resources }}
+          resources:
+            {{- toYaml $cfg.resources | nindent 12 }}
+          {{- else if $.Values.resources }}
+          resources:
+            {{- toYaml $.Values.resources | nindent 12 }}
+          {{- end }}
+          {{- with $cfg.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $cfg.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $cfg.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with $cfg.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+{{- end }}
+{{- end }}

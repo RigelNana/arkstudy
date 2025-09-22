@@ -1,0 +1,9 @@
+apiVersion: v2
+name: arkstudy
+version: 0.1.0
+description: A Helm chart for arkstudy microservices
+maintainers:
+  - name: RigelNana
+    email: example@example.com
+type: application
+kubeVersion: ">=1.24.0-0"

@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: material-service
+  namespace: arkstudy
+spec:
+  selector: { app: material-service }
+  ports:
+    - name: grpc
+      port: 50053
+      targetPort: 50053
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: material-service
+  namespace: arkstudy
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: material-service }
+  template:
+    metadata:
+      labels: { app: material-service }
+    spec:
+      containers:
+        - name: material-service
+          image: rigelnana/arkstudy-material-service:latest
+          imagePullPolicy: IfNotPresent
+          ports: [ { containerPort: 50053 } ]
+          envFrom:
+            - configMapRef: { name: material-config }
+            - secretRef: { name: db-app-secret }
+            - secretRef: { name: jwt-secret }
+          readinessProbe:
+            tcpSocket: { port: 50053 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: { port: 50053 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "200m", memory: "256Mi" }
+            limits:   { cpu: "1", memory: "1Gi" }

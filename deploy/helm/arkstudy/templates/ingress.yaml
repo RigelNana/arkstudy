@@ -1,0 +1,41 @@
+{{- $ns := .Values.namespace | default .Release.Namespace -}}
+{{- range $svcName, $cfg := .Values.services }}
+{{- if and $cfg.enabled $cfg.ingress $cfg.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ printf "%s-%s" (include "arkstudy.fullname" $) $svcName }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "arkstudy.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $svcName }}
+  {{- with $cfg.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- if $cfg.ingress.className }}
+  ingressClassName: {{ $cfg.ingress.className }}
+  {{- end }}
+  rules:
+    {{- range $cfg.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType | default "Prefix" }}
+            backend:
+              service:
+                name: {{ printf "%s-%s" (include "arkstudy.fullname" $) $svcName }}
+                port:
+                  number: {{ $cfg.service.port | default 80 }}
+          {{- end }}
+    {{- end }}
+  {{- with $cfg.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+---
+{{- end }}
+{{- end }}

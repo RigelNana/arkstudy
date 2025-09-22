@@ -1,0 +1,93 @@
+syntax = "proto3";
+package llm;
+
+option go_package = "github.com/RigelNana/arkstudy/proto/llm";
+
+service LLMService {
+  // MVP 第一阶段：基础问答
+  rpc AskQuestion (QuestionRequest) returns (QuestionResponse);
+  // 流式问答：逐 token/分片返回
+  rpc AskQuestionStream (QuestionRequest) returns (stream TokenChunk);
+  // MVP 第一阶段：语义检索
+  rpc SemanticSearch (SearchRequest) returns (SearchResponse);
+  // MVP 第一阶段：生成向量嵌入
+  rpc GenerateEmbeddings (EmbeddingRequest) returns (EmbeddingResponse);
+  // 批量分片入库（更高吞吐）
+  rpc UpsertChunks (UpsertChunksRequest) returns (UpsertChunksResponse);
+}
+
+message QuestionRequest {
+  string question = 1;
+  string user_id = 2;
+  repeated string material_ids = 3;
+  map<string, string> context = 4;
+}
+
+message SourceReference {
+  string material_id = 1;
+  string content_snippet = 2;
+  float relevance_score = 3;
+}
+
+message QuestionResponse {
+  string answer = 1;
+  float confidence = 2;
+  repeated SourceReference sources = 3;
+  map<string, string> metadata = 4;
+}
+
+message TokenChunk {
+  string content = 1; // token 或分片
+  bool is_final = 2;  // 标记是否为最后一个分片
+  map<string, string> metadata = 3; // 可选：包含中间元数据
+}
+
+message SearchRequest {
+  string query = 1;
+  string user_id = 2;
+  int32 top_k = 3;
+}
+
+message SearchResult {
+  string material_id = 1;
+  string content = 2;
+  float similarity_score = 3;
+  map<string, string> metadata = 4;
+}
+
+message SearchResponse {
+  repeated SearchResult results = 1;
+}
+
+message EmbeddingRequest {
+  string content = 1;
+  string material_id = 2;
+  string content_type = 3;
+}
+
+message EmbeddingResponse {
+  repeated float embedding = 1;
+  string embedding_id = 2;
+}
+
+// 批量分片入库
+message UpsertChunkItem {
+  // 分片内容（已解析的文本）
+  string content = 1;
+  // 可选：视频/音频的时间码，如 "00:00:05-00:00:12"
+  string timecode = 2;
+  // 可选：文档页码
+  int32 page = 3;
+  // 其他元数据（例如来源、分块策略等）
+  map<string, string> metadata = 4;
+}
+
+message UpsertChunksRequest {
+  string user_id = 1;
+  string material_id = 2;
+  repeated UpsertChunkItem chunks = 3;
+}
+
+message UpsertChunksResponse {
+  int32 inserted = 1; // 实际入库的分片数
+}

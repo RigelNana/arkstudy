@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: arkstudy
+spec:
+  selector: { app: auth-service }
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: 50051
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: arkstudy
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: auth-service }
+  template:
+    metadata:
+      labels: { app: auth-service }
+    spec:
+      containers:
+        - name: auth-service
+          image: rigelnana/arkstudy-auth-service:latest
+          imagePullPolicy: IfNotPresent
+          ports: [ { containerPort: 50051 } ]
+          env:
+            - name: DB_USER
+              valueFrom: { secretKeyRef: { name: db-app-secret, key: DB_USER } }
+            - name: DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: db-app-secret, key: DB_PASSWORD } }
+            - name: DB_HOST
+              value: postgres.arkstudy.svc.cluster.local
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: arkdb
+          readinessProbe:
+            tcpSocket: { port: 50051 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: { port: 50051 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }

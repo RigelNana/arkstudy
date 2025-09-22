@@ -1,0 +1,222 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: arkstudy
+resources:
+  - ../../base
+nameSuffix: -dev
+labels:
+  - pairs:
+      env: dev
+images:
+  - name: rigelnana/arkstudy-gateway
+    newName: rigelnana/arkstudy-gateway
+    newTag: latest
+  - name: rigelnana/arkstudy-auth-service
+    newName: rigelnana/arkstudy-auth-service
+    newTag: latest
+  - name: rigelnana/arkstudy-user-service
+    newName: rigelnana/arkstudy-user-service
+    newTag: latest
+  - name: rigelnana/arkstudy-material-service
+    newName: rigelnana/arkstudy-material-service
+    newTag: latest
+  - name: rigelnana/arkstudy-llm-service
+    newName: rigelnana/arkstudy-llm-service
+    newTag: latest
+  - name: rigelnana/arkstudy-ocr-service
+    newName: rigelnana/arkstudy-ocr-service
+    newTag: latest
+patches:
+  # gateway: set imagePullPolicy to Never
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: gateway
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: gateway
+      spec:
+        template:
+          spec:
+            containers:
+              - name: gateway
+                imagePullPolicy: Never
+
+  # auth-service: imagePullPolicy + override DB_HOST
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: auth-service
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: auth-service
+      spec:
+        template:
+          spec:
+            containers:
+              - name: auth-service
+                imagePullPolicy: Never
+                env:
+                  - name: DB_HOST
+                    value: postgres-dev.arkstudy.svc.cluster.local
+                  - name: USER_GRPC_ADDR
+                    value: user-service-dev.arkstudy.svc.cluster.local:50052
+
+  # user-service: imagePullPolicy + override DB_HOST
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: user-service
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: user-service
+      spec:
+        template:
+          spec:
+            containers:
+              - name: user-service
+                imagePullPolicy: Never
+                env:
+                  - name: DB_HOST
+                    value: postgres-dev.arkstudy.svc.cluster.local
+
+  # material-service: imagePullPolicy
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: material-service
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: material-service
+      spec:
+        template:
+          spec:
+            containers:
+              - name: material-service
+                imagePullPolicy: Never
+
+  # llm-service: imagePullPolicy
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: llm-service
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: llm-service
+      spec:
+        template:
+          spec:
+            containers:
+              - name: llm-service
+                imagePullPolicy: Never
+
+  # ocr-service: imagePullPolicy
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: ocr-service
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ocr-service
+      spec:
+        template:
+          spec:
+            containers:
+              - name: ocr-service
+                imagePullPolicy: Never
+
+  # kafka: fix advertised/controller host to kafka-dev and set imagePullPolicy
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: kafka
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: kafka
+      spec:
+        template:
+          spec:
+            containers:
+              - name: kafka
+                imagePullPolicy: IfNotPresent
+                env:
+                  - name: KAFKA_ADVERTISED_LISTENERS
+                    value: PLAINTEXT://kafka-dev.arkstudy.svc.cluster.local:9092
+                  - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+                    value: 1@localhost:29093
+
+  # Patch ConfigMaps to use -dev service DNS
+  - target:
+      kind: ConfigMap
+      name: gateway-config
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: gateway-config
+      data:
+        AUTH_GRPC_ADDR: auth-service-dev.arkstudy.svc.cluster.local:50051
+        USER_GRPC_ADDR: user-service-dev.arkstudy.svc.cluster.local:50052
+        MATERIAL_GRPC_ADDR: material-service-dev.arkstudy.svc.cluster.local:50053
+        LLM_GRPC_ADDR: llm-service-dev.arkstudy.svc.cluster.local:50054
+
+  - target:
+      kind: ConfigMap
+      name: material-config
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: material-config
+      data:
+        DB_HOST: postgres-dev.arkstudy.svc.cluster.local
+        LLM_GRPC_ADDR: llm-service-dev.arkstudy.svc.cluster.local:50054
+        OCR_GRPC_ADDR: ocr-service-dev.arkstudy.svc.cluster.local:50055
+        MINIO_ENDPOINT: minio-dev.arkstudy.svc.cluster.local:9000
+        KAFKA_BROKERS: kafka-dev.arkstudy.svc.cluster.local:9092
+
+  - target:
+      kind: ConfigMap
+      name: llm-config
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: llm-config
+      data:
+        DB_HOST: postgres-dev.arkstudy.svc.cluster.local
+
+  - target:
+      kind: ConfigMap
+      name: ocr-config
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: ocr-config
+      data:
+        MINIO_ENDPOINT: minio-dev.arkstudy.svc.cluster.local:9000
+        PADDLE_OCR_ENDPOINT: http://paddleocr-dev.arkstudy.svc.cluster.local:8868/predict/ocr_system
+        KAFKA_BROKERS: kafka-dev.arkstudy.svc.cluster.local:9092
+        MATERIAL_GRPC_ADDR: material-service-dev.arkstudy.svc.cluster.local:50053

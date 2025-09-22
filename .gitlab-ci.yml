@@ -1,0 +1,215 @@
+stages:
+  - lint
+  - test
+  - build
+  - docker
+  - validate
+  - deploy
+
+default:
+  interruptible: true
+  cache:
+    key: "$CI_PROJECT_NAME-$CI_COMMIT_REF_SLUG"
+    paths:
+      - .cache/go-build
+      - $GOPATH/pkg/mod
+    policy: pull-push
+
+variables:
+  # Docker registry defaults (override in CI/CD variables if needed)
+  DOCKER_REGISTRY: index.docker.io
+  DOCKER_NAMESPACE: rigelnana
+  IMAGE_TAG: "$CI_COMMIT_SHORT_SHA"
+
+# ------------------------ Lint ------------------------
+go:lint:
+  stage: lint
+  image: golang:1.24.7-alpine
+  before_script:
+    - go version
+    - go env -w GOMODCACHE=$CI_PROJECT_DIR/.cache/gomod
+    - mkdir -p .cache/go-build
+    - go work sync || true
+  script:
+    - go fmt ./... | tee /dev/stderr
+    - go vet ./...
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(push|merge_request_event)$/
+
+python:lint-llm:
+  stage: lint
+  image: python:3.13-slim
+  variables:
+    PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    PIP_NO_CACHE_DIR: "1"
+  before_script:
+    - python --version
+    - pip install --upgrade pip
+    - pip install ruff
+  script:
+    - cd services/llm-service
+    - ruff check .
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(push|merge_request_event)$/
+
+# ------------------------ Test & Build ------------------------
+go:test-build:
+  stage: build
+  image: golang:1.22
+  before_script:
+    - go env -w GOMODCACHE=$CI_PROJECT_DIR/.cache/gomod
+    - mkdir -p .cache/go-build
+    - go work sync || true
+  script:
+    - go build ./...
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(push|merge_request_event)$/
+
+# ------------------------ Docker (Kaniko) ------------------------
+.kaniko-build-template:
+  stage: docker
+  image:
+    name: gcr.io/kaniko-project/executor:latest
+    entrypoint: [""]
+  variables:
+    # Build context and dockerfile will be set by child jobs
+    BUILD_CONTEXT: "."
+    DOCKERFILE: "Dockerfile"
+    IMAGE_NAME: ""
+  script:
+    - |
+      if [ -n "$DOCKER_USER" ] && [ -n "$DOCKER_PASSWORD" ]; then
+        AUTH=$(printf "%s:%s" "$DOCKER_USER" "$DOCKER_PASSWORD" | base64 -w0)
+        mkdir -p /kaniko/.docker
+        cat > /kaniko/.docker/config.json <<EOF
+        {"auths": {"https://index.docker.io/v1/": {"auth": "$AUTH"}}}
+        EOF
+      fi
+    - |
+      DESTS="--destination $DOCKER_REGISTRY/$DOCKER_NAMESPACE/$IMAGE_NAME:$IMAGE_TAG"
+      if [ "$CI_COMMIT_BRANCH" = "main" ] || [ -n "$CI_COMMIT_TAG" ]; then
+        DESTS="$DESTS --destination $DOCKER_REGISTRY/$DOCKER_NAMESPACE/$IMAGE_NAME:latest"
+      fi
+      /kaniko/executor \
+        $DESTS \
+        --context $CI_PROJECT_DIR/$BUILD_CONTEXT \
+        --dockerfile $CI_PROJECT_DIR/$BUILD_CONTEXT/$DOCKERFILE \
+        --snapshotMode=redo \
+        --use-new-run \
+        --single-snapshot
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(push|merge_request_event)$/
+
+docker:gateway:
+  extends: .kaniko-build-template
+  variables:
+    BUILD_CONTEXT: "gateway"
+    DOCKERFILE: "Dockerfile"
+    IMAGE_NAME: "arkstudy-gateway"
+  rules:
+    - exists:
+        - gateway/Dockerfile
+    - if: $CI_PIPELINE_SOURCE =~ /^(push|merge_request_event)$/
+
+docker:auth-service:
+  extends: .kaniko-build-template
+  variables:
+    BUILD_CONTEXT: "services/auth-service"
+    DOCKERFILE: "Dockerfile"
+    IMAGE_NAME: "arkstudy-auth-service"
+  rules:
+    - exists:
+        - services/auth-service/Dockerfile
+    - if: $CI_PIPELINE_SOURCE =~ /^(push|merge_request_event)$/
+
+docker:user-service:
+  extends: .kaniko-build-template
+  variables:
+    BUILD_CONTEXT: "services/user-service"
+    DOCKERFILE: "Dockerfile"
+    IMAGE_NAME: "arkstudy-user-service"
+  rules:
+    - exists:
+        - services/user-service/Dockerfile
+    - if: $CI_PIPELINE_SOURCE =~ /^(push|merge_request_event)$/
+
+docker:material-service:
+  extends: .kaniko-build-template
+  variables:
+    BUILD_CONTEXT: "services/material-service"
+    DOCKERFILE: "Dockerfile"
+    IMAGE_NAME: "arkstudy-material-service"
+  rules:
+    - exists:
+        - services/material-service/Dockerfile
+    - if: $CI_PIPELINE_SOURCE =~ /^(push|merge_request_event)$/
+
+docker:ocr-service:
+  extends: .kaniko-build-template
+  variables:
+    BUILD_CONTEXT: "services/ocr-service"
+    DOCKERFILE: "Dockerfile"
+    IMAGE_NAME: "arkstudy-ocr-service"
+  rules:
+    - exists:
+        - services/ocr-service/Dockerfile
+    - if: $CI_PIPELINE_SOURCE =~ /^(push|merge_request_event)$/
+
+docker:llm-service:
+  extends: .kaniko-build-template
+  variables:
+    BUILD_CONTEXT: "services/llm-service"
+    DOCKERFILE: "Dockerfile"
+    IMAGE_NAME: "arkstudy-llm-service"
+  rules:
+    - exists:
+        - services/llm-service/Dockerfile
+    - if: $CI_PIPELINE_SOURCE =~ /^(push|merge_request_event)$/
+
+# ------------------------ Kustomize Validate ------------------------
+kustomize:validate-dev:
+  stage: validate
+  image: ghcr.io/kubernetes-sigs/kustomize/kustomize:v5.4.2
+  script:
+    - kustomize build k8s/overlays/dev >/dev/null
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(push|merge_request_event)$/
+
+helm:lint:
+  stage: validate
+  image: alpine/helm:3.15.3
+  script:
+    - helm lint deploy/helm/arkstudy
+    - helm template test deploy/helm/arkstudy --namespace arkstudy >/dev/null
+  rules:
+    - if: $CI_PIPELINE_SOURCE =~ /^(push|merge_request_event)$/
+
+# ------------------------ Deploy (optional, manual) ------------------------
+deploy:dev:
+  stage: deploy
+  image: bitnami/kubectl:1.29
+  variables:
+    KUSTOMIZE_OVERLAY: k8s/overlays/dev
+  script:
+    - kubectl version --client
+    - if [ -n "$KUBECONFIG" ]; then kubectl apply -k "$KUSTOMIZE_OVERLAY"; else echo "KUBECONFIG not set, skipping"; fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+    - when: never
+
+deploy:helm-dev:
+  stage: deploy
+  image: alpine/helm:3.15.3
+  script:
+    - helm version
+    - |
+      if [ -n "$KUBECONFIG" ]; then 
+        helm upgrade --install arkstudy deploy/helm/arkstudy -n arkstudy --create-namespace -f deploy/helm/arkstudy/values-dev.yaml;
+      else
+        echo "KUBECONFIG not set, skipping";
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+    - when: never

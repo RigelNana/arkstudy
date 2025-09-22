@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "helm-upgrade-dev",
+			"type": "shell",
+			"command": "helm upgrade --install arkstudy ./deploy/helm/arkstudy -n arkstudy -f ./deploy/helm/arkstudy/values-dev.yaml",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "helm-upgrade-dev",
+			"type": "shell",
+			"command": "helm upgrade --install arkstudy /home/rigel/arkstudy/deploy/helm/arkstudy -n arkstudy -f /home/rigel/arkstudy/deploy/helm/arkstudy/values-dev.yaml --wait",
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

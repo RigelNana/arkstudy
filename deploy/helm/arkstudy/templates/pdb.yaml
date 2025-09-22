@@ -1,0 +1,25 @@
+{{- $ns := .Values.namespace | default .Release.Namespace -}}
+{{- range $svcName, $cfg := .Values.services }}
+{{- if and $cfg.enabled $cfg.pdb $cfg.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ printf "%s-%s" (include "arkstudy.fullname" $) $svcName }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "arkstudy.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $svcName }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "arkstudy.name" $ }}
+      app.kubernetes.io/instance: {{ $.Release.Name }}
+      app.kubernetes.io/component: {{ $svcName }}
+  {{- if $cfg.pdb.minAvailable }}
+  minAvailable: {{ $cfg.pdb.minAvailable }}
+  {{- else if $cfg.pdb.maxUnavailable }}
+  maxUnavailable: {{ $cfg.pdb.maxUnavailable }}
+  {{- end }}
+---
+{{- end }}
+{{- end }}

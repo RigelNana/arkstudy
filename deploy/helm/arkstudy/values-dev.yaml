@@ -1,0 +1,261 @@
+# Dev overrides for arkstudy Helm chart
+namespace: arkstudy-dev
+
+monitoring:
+  enabled: true
+  scrapeInterval: 15s
+
+# 默认复用父 chart 的 global resources 为空；按需覆盖
+resources: {}
+
+services:
+  gateway:
+    enabled: true
+    image: rigelnana/arkstudy-gateway:latest
+    imagePullPolicy: IfNotPresent
+    replicas: 1
+    containerPort: 8080
+    service:
+      type: ClusterIP
+      port: 8080
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    # Disable probes in dev because /healthz and /readyz are not implemented yet
+    livenessProbe: null
+    readinessProbe: null
+    ingress:
+      enabled: true
+      className: nginx
+      annotations: {}
+      hosts:
+        - host: arkstudy.local
+          paths:
+            - path: /
+              pathType: Prefix
+        - host: study.local
+          paths:
+            - path: /
+              pathType: Prefix
+      tls: []
+    # 使用 Helm 托管的 ConfigMap，提供下游 gRPC 地址
+    config:
+      AUTH_GRPC_ADDR: arkstudy-auth-service:50051
+      USER_GRPC_ADDR: arkstudy-user-service:50052
+      MATERIAL_GRPC_ADDR: arkstudy-material-service:50053
+      LLM_GRPC_ADDR: arkstudy-llm-service:50054
+    serviceMonitorEnabled: true
+
+  auth-service:
+    enabled: true
+    image: rigelnana/arkstudy-auth-service:latest
+    imagePullPolicy: IfNotPresent
+    replicas: 1
+    containerPort: 50051
+    service:
+      type: ClusterIP
+      port: 50051
+      extraPorts:
+      - name: metrics
+        port: 2112
+        targetPort: 2112
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "2112"
+        prometheus.io/path: "/metrics"
+    envFrom:
+      - secretRef: { name: jwt-secret-dev }
+      - secretRef: { name: db-app-secret-dev }
+    env:
+      - name: DB_HOST
+        value: arkstudy-postgres
+      - name: DB_PORT
+        value: "5432"
+      - name: DB_NAME
+        value: arkdb
+    serviceMonitorEnabled: true
+
+  user-service:
+    enabled: true
+    image: rigelnana/arkstudy-user-service:latest
+    imagePullPolicy: IfNotPresent
+    replicas: 1
+    containerPort: 50052
+    service:
+      type: ClusterIP
+      port: 50052
+      extraPorts:
+      - name: metrics
+        port: 2112
+        targetPort: 2112
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "2112"
+        prometheus.io/path: "/metrics"
+    envFrom:
+      - secretRef: { name: jwt-secret-dev }
+      - secretRef: { name: db-app-secret-dev }
+    env:
+      - name: DB_HOST
+        value: arkstudy-postgres
+      - name: DB_PORT
+        value: "5432"
+      - name: DB_NAME
+        value: arkdb
+    serviceMonitorEnabled: true
+
+  material-service:
+    enabled: true
+    image: rigelnana/arkstudy-material-service:latest
+    imagePullPolicy: Never
+    replicas: 1
+    containerPort: 50053
+    service:
+      type: ClusterIP
+      port: 50053
+    envFrom:
+      - configMapRef: { name: material-config-dev }
+      - secretRef: { name: minio-secret-dev }
+      - secretRef: { name: db-app-secret-dev }
+    config:
+      # 将 MinIO 指向 Helm 托管的 minio 服务
+      MINIO_ENDPOINT: arkstudy-minio:9000
+      MINIO_BUCKET_NAME: arkstudy
+      # 下游与依赖服务地址（保持与 dev 环境一致）
+      DB_HOST: arkstudy-postgres
+      DB_NAME: arkdb
+      DB_PORT: "5432"
+      KAFKA_BROKERS: arkstudy-kafka:9092
+      KAFKA_GROUP_ID: material-worker
+      KAFKA_TOPIC_OCR_REQUESTS: ocr.requests
+      KAFKA_TOPIC_FILE_PROCESSING: file.processing
+      LLM_GRPC_ADDR: arkstudy-llm-service:50054
+      OCR_GRPC_ADDR: arkstudy-ocr-service:50055
+    serviceMonitorEnabled: true
+
+  ocr-service:
+    enabled: true
+    image: rigelnana/arkstudy-ocr-service:latest
+    imagePullPolicy: IfNotPresent
+    replicas: 1
+    containerPort: 50055
+    service:
+      type: ClusterIP
+      port: 50055
+    envFrom:
+      - configMapRef: { name: ocr-config-dev }
+      - secretRef: { name: minio-secret-dev }
+    config:
+      MINIO_ENDPOINT: arkstudy-minio:9000
+    serviceMonitorEnabled: true
+
+  llm-service:
+    enabled: true
+    image: rigelnana/arkstudy-llm-service:latest
+    imagePullPolicy: Never
+    replicas: 1
+    containerPort: 8000
+    service:
+      type: ClusterIP
+      port: 8000
+    envFrom:
+      - configMapRef: { name: arkstudy-llm-service }
+      - secretRef: { name: postgres-secret-dev }
+    config:
+      OPENAI_BASE_URL: "https://yunwu.ai/v1"
+      OPENAI_MODEL: "gpt-5-chat-latest"
+      OPENAI_EMBEDDING_MODEL: "text-embedding-3-small"
+      VECTOR_DIM: "128"
+      LLM_VECTOR_DIM: "128"
+      KAFKA_BROKERS: "arkstudy-kafka:9092"
+      KAFKA_GROUP_ID: "llm-service-group"
+      KAFKA_TOPIC_FILE_PROCESSING: "file.processing"
+      DB_USER: "postgres"
+      DB_HOST: "arkstudy-postgres"
+      DB_PORT: "5432"
+      DB_NAME: "arkdb"
+    serviceMonitorEnabled: true
+
+  # 开发环境内置一个简单的 MinIO 部署，仅供本地演示与联调（非生产）
+  minio:
+    enabled: true
+    image: minio/minio:latest
+    imagePullPolicy: IfNotPresent
+    replicas: 1
+    containerPort: 9000
+    service:
+      type: ClusterIP
+      port: 9000
+    args: ["server", "/data", "--console-address", ":9001"]
+    env:
+      - name: MINIO_ROOT_USER
+        valueFrom:
+          secretKeyRef: { name: minio-secret-dev, key: accessKey }
+      - name: MINIO_ROOT_PASSWORD
+        valueFrom:
+          secretKeyRef: { name: minio-secret-dev, key: secretKey }
+
+# Enable third-party services for dev
+thirdParty:
+  postgres:
+    enabled: true
+    image: pgvector/pgvector:pg16
+    port: 5432
+    storage:
+      size: 5Gi
+      storageClassName: ""
+    database: arkdb
+    username: postgres
+    # Optional: set password here for dev; a Secret will be created automatically
+    password: "postgres"
+    passwordSecretRef: { name: postgres-secret-dev, key: password }
+    initSQL:
+      enabled: true
+      file: files/init.sql
+      # existingConfigMap: postgres-init-dev  # 注释掉，让它自动创建
+  redis:
+    enabled: true
+    image: redis:7-alpine
+    port: 6379
+    storage:
+      enabled: false
+  kafka:
+    enabled: true
+    image: confluentinc/cp-kafka:latest
+    port: 9092
+    clusterId: "6LZMxk8NTXidS6TGH1Zk1w"
+    storage:
+      enabled: false
+
+# 开发环境密钥配置
+secrets:
+  jwt-secret-dev:
+    JWT_SECRET_KEY: "your_jwt_secret_key_with_my_favorite_oshi_saba"
+  
+  db-app-secret-dev:
+    DB_USER: "postgres"
+    DB_PASSWORD: "postgres"
+  
+  openai-secret-dev:
+    OPENAI_API_KEY: "sk-m1UJT3JX0jmOPnDDlgMnXWENNe1hlmFlgitIN1R1nwk7IzIO"
+  
+  postgres-secret-dev:
+    password: "postgres"
+    DB_PASSWORD: "postgres"
+  
+  minio-secret-dev:
+    accessKey: "minioadmin"
+    secretKey: "minioadmin"
+    MINIO_ACCESS_KEY: "minioadmin"
+    MINIO_SECRET_KEY: "minioadmin"
+
+# 开发环境配置映射
+configMaps:    
+  material-config-dev:
+    MATERIAL_UPLOAD_MAX_SIZE: "100MB"
+    MATERIAL_CACHE_TTL: "3600"
+    
+  ocr-config-dev:
+    OCR_ENGINE: "paddleocr"
+    OCR_LANGUAGE: "ch"

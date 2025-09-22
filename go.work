@@ -2,8 +2,10 @@ go 1.24.7
 
 use (
 	./gateway
+	./pkg/metrics
 	./proto
 	./services/auth-service
 	./services/material-service
+	./services/ocr-service
 	./services/user-service
 )

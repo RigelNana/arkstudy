@@ -11,6 +11,7 @@ services:
       - user-service
       - auth-service
       - material-service
+      - llm-service
   auth-service:
     build: 
       context: ..
@@ -37,14 +38,7 @@ services:
       timeout: 30s
       retries: 5
       start_period: 30s
-  zookeeper:
-    image: confluentinc/cp-zookeeper:latest
-    container_name: zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
+  # Zookeeper removed; use Kafka KRaft mode for simplicity
 
 
   
@@ -92,6 +86,64 @@ services:
         condition: service_healthy
       user-service:
         condition: service_started
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      # Required by Confluent KRaft images: static cluster id (use random-uuid in prod)
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      # Recommended inter-broker listener name
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      # Data dir inside container
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+  llm-service:
+    build:
+      context: ..
+      dockerfile: services/llm-service/Dockerfile
+    ports:
+      - "50054:50054"   # gRPC
+      - "8000:8000"     # HTTP health
+    env_file:
+      - ../services/llm-service/.env
+    depends_on:
+      db:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+      material-service:
+        condition: service_started
+  ocr-service:
+    build:
+      context: ..
+      dockerfile: services/ocr-service/Dockerfile
+    ports:
+      - "50055:50055"
+    env_file:
+      - ../services/ocr-service/.env
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
       
 volumes:
   db-data:

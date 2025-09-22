@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ocr-service
+  namespace: arkstudy
+spec:
+  selector: { app: ocr-service }
+  ports:
+    - name: grpc
+      port: 50055
+      targetPort: 50055
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ocr-service
+  namespace: arkstudy
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: ocr-service }
+  template:
+    metadata:
+      labels: { app: ocr-service }
+    spec:
+      containers:
+        - name: ocr-service
+          image: rigelnana/arkstudy-ocr-service:latest
+          imagePullPolicy: IfNotPresent
+          ports: [ { containerPort: 50055 } ]
+          envFrom:
+            - configMapRef: { name: ocr-config }
+          env:
+            - name: MINIO_ACCESS_KEY
+              valueFrom: { secretKeyRef: { name: minio-secret, key: accessKey } }
+            - name: MINIO_SECRET_KEY
+              valueFrom: { secretKeyRef: { name: minio-secret, key: secretKey } }
+          readinessProbe:
+            tcpSocket: { port: 50055 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: { port: 50055 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "100m", memory: "128Mi" }
+            limits:   { cpu: "500m", memory: "512Mi" }

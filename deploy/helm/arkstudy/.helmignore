@@ -1,0 +1,16 @@
+# Common Helm ignore patterns
+.DS_Store
+.git/
+.gitignore
+.bzr/
+.bzrignore
+.hg/
+.hgignore
+.svn/
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+*.lock
+node_modules/
