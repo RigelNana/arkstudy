@@ -1,0 +1,81 @@
+syntax = "proto3";
+package asr;
+option go_package = "github.com/RigelNana/arkstudy/proto/asr";
+
+// ASR服务接口
+service ASRService {
+    // 处理视频文件进行语音识别
+    rpc ProcessVideo (ProcessVideoRequest) returns (ProcessVideoResponse);
+    
+    // 获取指定材料的ASR分段结果
+    rpc GetSegments (GetSegmentsRequest) returns (GetSegmentsResponse);
+    
+    // 搜索ASR分段
+    rpc SearchSegments (SearchSegmentsRequest) returns (SearchSegmentsResponse);
+    
+    // 健康检查
+    rpc HealthCheck (HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// 处理视频请求
+message ProcessVideoRequest {
+    uint64 material_id = 1;
+    string video_url = 2;
+    string video_path = 3;
+}
+
+// 处理视频响应
+message ProcessVideoResponse {
+    bool success = 1;
+    string message = 2;
+    repeated ASRSegment segments = 3;
+}
+
+// 获取分段请求
+message GetSegmentsRequest {
+    uint64 material_id = 1;
+}
+
+// 获取分段响应
+message GetSegmentsResponse {
+    bool success = 1;
+    string message = 2;
+    repeated ASRSegment segments = 3;
+}
+
+// 搜索分段请求
+message SearchSegmentsRequest {
+    string query = 1;
+    uint64 material_id = 2; // 可选，指定材料ID
+    int32 limit = 3; // 可选，结果数量限制
+}
+
+// 搜索分段响应
+message SearchSegmentsResponse {
+    bool success = 1;
+    string message = 2;
+    repeated ASRSegment segments = 3;
+}
+
+// 健康检查请求
+message HealthCheckRequest {
+}
+
+// 健康检查响应
+message HealthCheckResponse {
+    string status = 1;
+    string message = 2;
+}
+
+// ASR分段信息
+message ASRSegment {
+    uint64 id = 1;
+    uint64 material_id = 2;
+    float start_time = 3;
+    float end_time = 4;
+    string text = 5;
+    float confidence = 6;
+    string embedding_vector = 7; // JSON格式的向量数据
+    string created_at = 8;
+    string updated_at = 9;
+}

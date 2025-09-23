@@ -38,11 +38,12 @@ type MaterialService interface {
 }
 
 type MaterialServiceImpl struct {
-	repo           repository.MaterialRepository
-	processingRepo repository.ProcessingResultRepository
-	minioClient    *minio.Client
-	config         *config.Config
-	kafkaWriter    *kafka.Writer
+	repo                     repository.MaterialRepository
+	processingRepo           repository.ProcessingResultRepository
+	minioClient              *minio.Client
+	config                   *config.Config
+	kafkaWriter              *kafka.Writer
+	textExtractedKafkaWriter *kafka.Writer
 }
 
 func NewMaterialService(repo repository.MaterialRepository, processingRepo repository.ProcessingResultRepository, cfg *config.Config) (MaterialService, error) {
@@ -76,12 +77,20 @@ func NewMaterialService(repo repository.MaterialRepository, processingRepo repos
 		log.Printf("Kafka writer is nil - not configured")
 	}
 
+	textExtractedKafkaWriter := newTextExtractedKafkaWriter(cfg)
+	if textExtractedKafkaWriter != nil {
+		log.Printf("Text extracted Kafka writer initialized successfully")
+	} else {
+		log.Printf("Text extracted Kafka writer is nil - not configured")
+	}
+
 	return &MaterialServiceImpl{
-		repo:           repo,
-		processingRepo: processingRepo,
-		minioClient:    minioClient,
-		config:         cfg,
-		kafkaWriter:    kafkaWriter,
+		repo:                     repo,
+		processingRepo:           processingRepo,
+		minioClient:              minioClient,
+		config:                   cfg,
+		kafkaWriter:              kafkaWriter,
+		textExtractedKafkaWriter: textExtractedKafkaWriter,
 	}, nil
 }
 
@@ -122,6 +131,31 @@ func newFileProcessingKafkaWriter(cfg *config.Config) *kafka.Writer {
 		return nil
 	}
 	// support comma-separated brokers
+	var bs []string
+	for _, b := range strings.Split(brokers, ",") {
+		b = strings.TrimSpace(b)
+		if b != "" {
+			bs = append(bs, b)
+		}
+	}
+	if len(bs) == 0 {
+		return nil
+	}
+	return &kafka.Writer{
+		Addr:         kafka.TCP(bs...),
+		Topic:        topic,
+		Balancer:     &kafka.LeastBytes{},
+		RequiredAcks: kafka.RequireOne,
+		Compression:  kafka.Snappy,
+	}
+}
+
+func newTextExtractedKafkaWriter(cfg *config.Config) *kafka.Writer {
+	brokers := strings.TrimSpace(cfg.Database.KafkaBrokers)
+	topic := strings.TrimSpace(cfg.Database.KafkaTopicTextExtracted)
+	if brokers == "" || topic == "" {
+		return nil
+	}
 	var bs []string
 	for _, b := range strings.Split(brokers, ",") {
 		b = strings.TrimSpace(b)
@@ -199,11 +233,25 @@ func (s *MaterialServiceImpl) UploadFile(userID uuid.UUID, title, originalFilena
 
 	// 发送 Kafka 消息给 llm-service 进行文档处理
 	log.Printf("Attempting to send file processing message for material %s", material.ID.String())
-	if err := s.sendFileProcessingMessage(material, userID); err != nil {
-		// 记录错误但不影响上传成功
-		log.Printf("Warning: failed to send file processing message: %v", err)
+	if material.FileType == "pdf" || material.FileType == "document" || material.FileType == "image" {
+		if err := s.sendOcrRequestMessage(material, userID); err != nil {
+			log.Printf("Warning: failed to send ocr request message: %v", err)
+		} else {
+			log.Printf("Successfully sent ocr request message for material %s", material.ID.String())
+		}
+	} else if material.FileType == "text" {
+		if err := s.sendTextExtractedMessage(material, userID); err != nil {
+			log.Printf("Warning: failed to send text extracted message: %v", err)
+		} else {
+			log.Printf("Successfully sent text extracted message for material %s", material.ID.String())
+		}
 	} else {
-		log.Printf("Successfully sent file processing message for material %s", material.ID.String())
+		if err := s.sendFileProcessingMessage(material, userID); err != nil {
+			// 记录错误但不影响上传成功
+			log.Printf("Warning: failed to send file processing message: %v", err)
+		} else {
+			log.Printf("Successfully sent file processing message for material %s", material.ID.String())
+		}
 	}
 
 	return material, nil
@@ -323,7 +371,7 @@ func (s *MaterialServiceImpl) ProcessMaterial(materialID uuid.UUID, userID uuid.
 	}
 
 	// 5. 触发异步处理
-	if processType == models.ProcessingTypeOCR && s.kafkaWriter != nil {
+	if processType == models.ProcessingTypeOCR && s.textExtractedKafkaWriter != nil {
 		// 5.1 生成短期下载 URL
 		urlStr, err := s.GetFileURL(material, 15*time.Minute)
 		if err != nil {
@@ -530,6 +578,87 @@ func splitTextToChunks(text string) []string {
 		out = append(out, cur.String())
 	}
 	return out
+}
+
+func (s *MaterialServiceImpl) sendOcrRequestMessage(material *models.Material, userID uuid.UUID) error {
+	if s.kafkaWriter == nil {
+		return fmt.Errorf("kafka writer not configured")
+	}
+
+	// 构建消息
+	message := map[string]interface{}{
+		"task_id":     uuid.New().String(),
+		"material_id": material.ID.String(),
+		"user_id":     userID.String(),
+		"file_url":    fmt.Sprintf("materials/%s/%s", material.MinioBucket, material.MinioObjectName),
+		"file_type":   material.FileType,
+	}
+
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	// 发送到 Kafka
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err = s.kafkaWriter.WriteMessages(ctx, kafka.Message{
+		Key:   []byte(material.ID.String()),
+		Value: messageBytes,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to write message to kafka: %w", err)
+	}
+	return nil
+}
+
+func (s *MaterialServiceImpl) sendTextExtractedMessage(material *models.Material, userID uuid.UUID) error {
+	if s.textExtractedKafkaWriter == nil {
+		return fmt.Errorf("text extracted kafka writer not configured")
+	}
+
+	// 读取文件内容
+	ctx := context.Background()
+	obj, err := s.minioClient.GetObject(ctx, material.MinioBucket, material.MinioObjectName, minio.GetObjectOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to get object from minio: %w", err)
+	}
+	defer obj.Close()
+	buf := new(bytes.Buffer)
+	if _, err := buf.ReadFrom(obj); err != nil {
+		return fmt.Errorf("failed to read object content: %w", err)
+	}
+	content := buf.String()
+
+	// 构建消息
+	message := map[string]interface{}{
+		"material_id": material.ID.String(),
+		"user_id":     userID.String(),
+		"text":        content,
+		"source":      "text",
+	}
+
+	messageBytes, err := json.Marshal(message)
+	if err != nil {
+		return fmt.Errorf("failed to marshal message: %w", err)
+	}
+
+	// 发送到 Kafka
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err = s.textExtractedKafkaWriter.WriteMessages(ctx, kafka.Message{
+		Key:   []byte(material.ID.String()),
+		Value: messageBytes,
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to write message to kafka: %w", err)
+	}
+
+	return nil
 }
 
 // sendFileProcessingMessage 发送文件处理消息到 Kafka

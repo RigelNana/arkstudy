@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rllm/llm.proto\x12\x03llm\"\xae\x01\n\x0fQuestionRequest\x12\x10\n\x08question\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x14\n\x0cmaterial_ids\x18\x03 \x03(\t\x12\x32\n\x07\x63ontext\x18\x04 \x03(\x0b\x32!.llm.QuestionRequest.ContextEntry\x1a.\n\x0c\x43ontextEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"X\n\x0fSourceReference\x12\x13\n\x0bmaterial_id\x18\x01 \x01(\t\x12\x17\n\x0f\x63ontent_snippet\x18\x02 \x01(\t\x12\x17\n\x0frelevance_score\x18\x03 \x01(\x02\"\xc5\x01\n\x10QuestionResponse\x12\x0e\n\x06\x61nswer\x18\x01 \x01(\t\x12\x12\n\nconfidence\x18\x02 \x01(\x02\x12%\n\x07sources\x18\x03 \x03(\x0b\x32\x14.llm.SourceReference\x12\x35\n\x08metadata\x18\x04 \x03(\x0b\x32#.llm.QuestionResponse.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x91\x01\n\nTokenChunk\x12\x0f\n\x07\x63ontent\x18\x01 \x01(\t\x12\x10\n\x08is_final\x18\x02 \x01(\x08\x12/\n\x08metadata\x18\x03 \x03(\x0b\x32\x1d.llm.TokenChunk.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\">\n\rSearchRequest\x12\r\n\x05query\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\r\n\x05top_k\x18\x03 \x01(\x05\"\xb2\x01\n\x0cSearchResult\x12\x13\n\x0bmaterial_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\x12\x18\n\x10similarity_score\x18\x03 \x01(\x02\x12\x31\n\x08metadata\x18\x04 \x03(\x0b\x32\x1f.llm.SearchResult.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"4\n\x0eSearchResponse\x12\"\n\x07results\x18\x01 \x03(\x0b\x32\x11.llm.SearchResult\"N\n\x10\x45mbeddingRequest\x12\x0f\n\x07\x63ontent\x18\x01 \x01(\t\x12\x13\n\x0bmaterial_id\x18\x02 \x01(\t\x12\x14\n\x0c\x63ontent_type\x18\x03 \x01(\t\"<\n\x11\x45mbeddingResponse\x12\x11\n\tembedding\x18\x01 \x03(\x02\x12\x14\n\x0c\x65mbedding_id\x18\x02 \x01(\t\"\xa9\x01\n\x0fUpsertChunkItem\x12\x0f\n\x07\x63ontent\x18\x01 \x01(\t\x12\x10\n\x08timecode\x18\x02 \x01(\t\x12\x0c\n\x04page\x18\x03 \x01(\x05\x12\x34\n\x08metadata\x18\x04 \x03(\x0b\x32\".llm.UpsertChunkItem.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"a\n\x13UpsertChunksRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x13\n\x0bmaterial_id\x18\x02 \x01(\t\x12$\n\x06\x63hunks\x18\x03 \x03(\x0b\x32\x14.llm.UpsertChunkItem\"(\n\x14UpsertChunksResponse\x12\x10\n\x08inserted\x18\x01 \x01(\x05\x32\xcb\x02\n\nLLMService\x12:\n\x0b\x41skQuestion\x12\x14.llm.QuestionRequest\x1a\x15.llm.QuestionResponse\x12<\n\x11\x41skQuestionStream\x12\x14.llm.QuestionRequest\x1a\x0f.llm.TokenChunk0\x01\x12\x39\n\x0eSemanticSearch\x12\x12.llm.SearchRequest\x1a\x13.llm.SearchResponse\x12\x43\n\x12GenerateEmbeddings\x12\x15.llm.EmbeddingRequest\x1a\x16.llm.EmbeddingResponse\x12\x43\n\x0cUpsertChunks\x12\x18.llm.UpsertChunksRequest\x1a\x19.llm.UpsertChunksResponseB)Z\'github.com/RigelNana/arkstudy/proto/llmb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rllm/llm.proto\x12\x03llm\"\xae\x01\n\x0fQuestionRequest\x12\x10\n\x08question\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x14\n\x0cmaterial_ids\x18\x03 \x03(\t\x12\x32\n\x07\x63ontext\x18\x04 \x03(\x0b\x32!.llm.QuestionRequest.ContextEntry\x1a.\n\x0c\x43ontextEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"X\n\x0fSourceReference\x12\x13\n\x0bmaterial_id\x18\x01 \x01(\t\x12\x17\n\x0f\x63ontent_snippet\x18\x02 \x01(\t\x12\x17\n\x0frelevance_score\x18\x03 \x01(\x02\"\xc5\x01\n\x10QuestionResponse\x12\x0e\n\x06\x61nswer\x18\x01 \x01(\t\x12\x12\n\nconfidence\x18\x02 \x01(\x02\x12%\n\x07sources\x18\x03 \x03(\x0b\x32\x14.llm.SourceReference\x12\x35\n\x08metadata\x18\x04 \x03(\x0b\x32#.llm.QuestionResponse.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x91\x01\n\nTokenChunk\x12\x0f\n\x07\x63ontent\x18\x01 \x01(\t\x12\x10\n\x08is_final\x18\x02 \x01(\x08\x12/\n\x08metadata\x18\x03 \x03(\x0b\x32\x1d.llm.TokenChunk.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"T\n\rSearchRequest\x12\r\n\x05query\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\r\n\x05top_k\x18\x03 \x01(\x05\x12\x14\n\x0cmaterial_ids\x18\x04 \x03(\t\"\xb2\x01\n\x0cSearchResult\x12\x13\n\x0bmaterial_id\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\x12\x18\n\x10similarity_score\x18\x03 \x01(\x02\x12\x31\n\x08metadata\x18\x04 \x03(\x0b\x32\x1f.llm.SearchResult.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"4\n\x0eSearchResponse\x12\"\n\x07results\x18\x01 \x03(\x0b\x32\x11.llm.SearchResult\"N\n\x10\x45mbeddingRequest\x12\x0f\n\x07\x63ontent\x18\x01 \x01(\t\x12\x13\n\x0bmaterial_id\x18\x02 \x01(\t\x12\x14\n\x0c\x63ontent_type\x18\x03 \x01(\t\"<\n\x11\x45mbeddingResponse\x12\x11\n\tembedding\x18\x01 \x03(\x02\x12\x14\n\x0c\x65mbedding_id\x18\x02 \x01(\t\"\xa9\x01\n\x0fUpsertChunkItem\x12\x0f\n\x07\x63ontent\x18\x01 \x01(\t\x12\x10\n\x08timecode\x18\x02 \x01(\t\x12\x0c\n\x04page\x18\x03 \x01(\x05\x12\x34\n\x08metadata\x18\x04 \x03(\x0b\x32\".llm.UpsertChunkItem.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"a\n\x13UpsertChunksRequest\x12\x0f\n\x07user_id\x18\x01 \x01(\t\x12\x13\n\x0bmaterial_id\x18\x02 \x01(\t\x12$\n\x06\x63hunks\x18\x03 \x03(\x0b\x32\x14.llm.UpsertChunkItem\"(\n\x14UpsertChunksResponse\x12\x10\n\x08inserted\x18\x01 \x01(\x05\x32\xcb\x02\n\nLLMService\x12:\n\x0b\x41skQuestion\x12\x14.llm.QuestionRequest\x1a\x15.llm.QuestionResponse\x12<\n\x11\x41skQuestionStream\x12\x14.llm.QuestionRequest\x1a\x0f.llm.TokenChunk0\x01\x12\x39\n\x0eSemanticSearch\x12\x12.llm.SearchRequest\x1a\x13.llm.SearchResponse\x12\x43\n\x12GenerateEmbeddings\x12\x15.llm.EmbeddingRequest\x1a\x16.llm.EmbeddingResponse\x12\x43\n\x0cUpsertChunks\x12\x18.llm.UpsertChunksRequest\x1a\x19.llm.UpsertChunksResponseB)Z\'github.com/RigelNana/arkstudy/proto/llmb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -57,25 +57,25 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_TOKENCHUNK_METADATAENTRY']._serialized_start=440
   _globals['_TOKENCHUNK_METADATAENTRY']._serialized_end=487
   _globals['_SEARCHREQUEST']._serialized_start=637
-  _globals['_SEARCHREQUEST']._serialized_end=699
-  _globals['_SEARCHRESULT']._serialized_start=702
-  _globals['_SEARCHRESULT']._serialized_end=880
+  _globals['_SEARCHREQUEST']._serialized_end=721
+  _globals['_SEARCHRESULT']._serialized_start=724
+  _globals['_SEARCHRESULT']._serialized_end=902
   _globals['_SEARCHRESULT_METADATAENTRY']._serialized_start=440
   _globals['_SEARCHRESULT_METADATAENTRY']._serialized_end=487
-  _globals['_SEARCHRESPONSE']._serialized_start=882
-  _globals['_SEARCHRESPONSE']._serialized_end=934
-  _globals['_EMBEDDINGREQUEST']._serialized_start=936
-  _globals['_EMBEDDINGREQUEST']._serialized_end=1014
-  _globals['_EMBEDDINGRESPONSE']._serialized_start=1016
-  _globals['_EMBEDDINGRESPONSE']._serialized_end=1076
-  _globals['_UPSERTCHUNKITEM']._serialized_start=1079
-  _globals['_UPSERTCHUNKITEM']._serialized_end=1248
+  _globals['_SEARCHRESPONSE']._serialized_start=904
+  _globals['_SEARCHRESPONSE']._serialized_end=956
+  _globals['_EMBEDDINGREQUEST']._serialized_start=958
+  _globals['_EMBEDDINGREQUEST']._serialized_end=1036
+  _globals['_EMBEDDINGRESPONSE']._serialized_start=1038
+  _globals['_EMBEDDINGRESPONSE']._serialized_end=1098
+  _globals['_UPSERTCHUNKITEM']._serialized_start=1101
+  _globals['_UPSERTCHUNKITEM']._serialized_end=1270
   _globals['_UPSERTCHUNKITEM_METADATAENTRY']._serialized_start=440
   _globals['_UPSERTCHUNKITEM_METADATAENTRY']._serialized_end=487
-  _globals['_UPSERTCHUNKSREQUEST']._serialized_start=1250
-  _globals['_UPSERTCHUNKSREQUEST']._serialized_end=1347
-  _globals['_UPSERTCHUNKSRESPONSE']._serialized_start=1349
-  _globals['_UPSERTCHUNKSRESPONSE']._serialized_end=1389
-  _globals['_LLMSERVICE']._serialized_start=1392
-  _globals['_LLMSERVICE']._serialized_end=1723
+  _globals['_UPSERTCHUNKSREQUEST']._serialized_start=1272
+  _globals['_UPSERTCHUNKSREQUEST']._serialized_end=1369
+  _globals['_UPSERTCHUNKSRESPONSE']._serialized_start=1371
+  _globals['_UPSERTCHUNKSRESPONSE']._serialized_end=1411
+  _globals['_LLMSERVICE']._serialized_start=1414
+  _globals['_LLMSERVICE']._serialized_end=1745
 # @@protoc_insertion_point(module_scope)

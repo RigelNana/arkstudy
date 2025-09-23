@@ -1,0 +1,38 @@
+{{- if .Values.thirdParty.kafka.createTopics.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "arkstudy.fullname" . }}-kafka-topics
+  namespace: {{ .Values.namespace | default .Release.Namespace }}
+  labels:
+    {{- include "arkstudy.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kafka-topic-creator
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "arkstudy.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: kafka-topic-creator
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: kafka-topic-creator
+          image: {{ .Values.thirdParty.kafka.image | default "confluentinc/cp-kafka:latest" }}
+          command:
+            - "/bin/sh"
+            - "-c"
+            - |
+              echo "Waiting for Kafka to be ready...";
+              until kafka-topics --bootstrap-server {{ include "arkstudy.fullname" . }}-kafka:{{ .Values.thirdParty.kafka.port | default 9092 }} --list; do
+                sleep 2;
+              done;
+              echo "Kafka is ready. Creating topics...";
+              kafka-topics --bootstrap-server {{ include "arkstudy.fullname" . }}-kafka:{{ .Values.thirdParty.kafka.port | default 9092 }} --create --if-not-exists --topic file.processing --partitions 1 --replication-factor 1;
+              kafka-topics --bootstrap-server {{ include "arkstudy.fullname" . }}-kafka:{{ .Values.thirdParty.kafka.port | default 9092 }} --create --if-not-exists --topic text.extracted --partitions 1 --replication-factor 1;
+              kafka-topics --bootstrap-server {{ include "arkstudy.fullname" . }}-kafka:{{ .Values.thirdParty.kafka.port | default 9092 }} --create --if-not-exists --topic ocr.requests --partitions 1 --replication-factor 1;
+              echo "Topics created.";
+{{- end }}

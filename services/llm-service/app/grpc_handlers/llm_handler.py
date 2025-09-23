@@ -85,7 +85,14 @@ class LLMServiceHandler(llm_pb2_grpc.LLMServiceServicer):
         yield llm_pb2.TokenChunk(content=single.answer, is_final=True, metadata={"session_id": sid})
 
     async def SemanticSearch(self, request: llm_pb2.SearchRequest, context: grpc.aio.ServicerContext) -> llm_pb2.SearchResponse:
-        hits = await self.svc.semantic_search(query=request.query, user_id=request.user_id, top_k=request.top_k or 5)
+        print(f"[DEBUG] Received SemanticSearch request: query='{request.query}', user_id='{request.user_id}', top_k={request.top_k}, material_ids={list(request.material_ids)}")
+        hits = await self.svc.semantic_search(
+            query=request.query, 
+            user_id=request.user_id, 
+            top_k=request.top_k or 5,
+            material_ids=list(request.material_ids) if request.material_ids else None
+        )
+        print(f"[DEBUG] SemanticSearch found {len(hits)} hits")
         def _str_map(d: dict | None) -> dict[str, str]:
             if not d:
                 return {}

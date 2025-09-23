@@ -33,7 +33,7 @@ class KafkaFileProcessor:
             
             # 获取 Kafka 配置
             kafka_brokers = self.settings.kafka_bootstrap_servers
-            kafka_topic = self.settings.kafka_topic_file_processing
+            kafka_topic = self.settings.kafka_topic_text_extracted
             kafka_group_id = self.settings.kafka_group_id
             
             logger.info(f"Starting Kafka consumer for topic '{kafka_topic}' at {kafka_brokers}")
@@ -105,14 +105,14 @@ class KafkaFileProcessor:
     async def _handle_message(self, message_data: Dict[str, Any]):
         """处理单个消息"""
         try:
-            logger.info(f"Processing file message: {message_data}")
+            logger.info(f"Processing text message: {message_data}")
             
             # 提取消息信息
-            file_id = message_data.get('file_id')
-            file_path = message_data.get('file_path')
+            file_id = message_data.get('material_id')
+            text = message_data.get('text')
             
-            if not file_id or not file_path:
-                logger.warning("Invalid message: missing file_id or file_path")
+            if not file_id or not text:
+                logger.warning("Invalid message: missing material_id or text")
                 return
             
             # 检查是否已处理过
@@ -122,7 +122,7 @@ class KafkaFileProcessor:
                 return
             
             # 处理文档
-            chunks = await self.process_file_message(message_data)
+            chunks = await self.process_text_message(message_data)
             
             logger.info(f"Successfully processed file {file_id}: {len(chunks) if chunks else 0} chunks created")
             
@@ -130,40 +130,40 @@ class KafkaFileProcessor:
             logger.error(f"Error handling message {message_data}: {e}")
             raise
     
-    async def process_file_message(self, message_data: Dict[str, Any]):
-        """处理文件消息"""
+    async def process_text_message(self, message_data: Dict[str, Any]):
+        """处理文本消息"""
         try:
-            logger.info(f"Processing file message: {message_data}")
+            logger.info(f"Processing text message: {message_data}")
             
             # 提取消息信息
-            file_id = message_data.get('file_id')
-            file_path = message_data.get('file_path')
+            file_id = message_data.get('material_id')
             user_id = message_data.get('user_id')
-            file_type = message_data.get('file_type', 'unknown')
+            text = message_data.get('text')
+            source = message_data.get('source', 'unknown')
             
-            if not file_id or not file_path:
-                logger.warning("Invalid message: missing file_id or file_path")
+            if not file_id or not text:
+                logger.warning("Invalid message: missing material_id or text")
                 return
             
-            # 检查是否已处理过
+            # 检查是否已处理过 (可以保留，以防重复消息)
             existing_chunks = await pg_vector_store.get_chunks_by_file(file_id)
             if existing_chunks:
                 logger.info(f"File {file_id} already processed, skipping")
                 return
             
-            # 处理文档
-            chunks = await self.processor.process_document(
-                file_path=file_path,
+            # 处理文本
+            chunks = await self.processor.process_text(
+                content=text,
                 file_id=file_id,
                 user_id=user_id,
-                file_type=file_type
+                file_type=source
             )
             
             logger.info(f"Processed file {file_id}: {len(chunks)} chunks created")
             return chunks
             
         except Exception as e:
-            logger.error(f"Error processing file message {message_data}: {e}")
+            logger.error(f"Error processing text message {message_data}: {e}")
             raise
 
 

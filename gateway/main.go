@@ -9,6 +9,7 @@ import (
 	"github.com/RigelNana/arkstudy/pkg/metrics"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -26,7 +27,41 @@ func main() {
 	materialHandler := handler.NewMaterialHandler(materialClient)
 	llmHandler := handler.NewLLMHandler(llmClient)
 
-	r := router.Setup(authHandler, userHandler, materialHandler, llmHandler)
+	// 初始化 Quiz Handler
+	logger := logrus.New()
+	quizServiceAddr := os.Getenv("QUIZ_SERVICE_ADDR")
+	if quizServiceAddr == "" {
+		// 检查K8s环境变量
+		quizHost := os.Getenv("ARKSTUDY_QUIZ_SERVICE_SERVICE_HOST")
+		quizPort := os.Getenv("ARKSTUDY_QUIZ_SERVICE_SERVICE_PORT")
+		if quizHost != "" && quizPort != "" {
+			quizServiceAddr = quizHost + ":" + quizPort
+		} else {
+			quizServiceAddr = "quiz-service:50056" // 使用正确的端口
+		}
+	}
+	log.Printf("Quiz service address: %s", quizServiceAddr)
+	quizHandler := handler.NewQuizHandler(quizServiceAddr, logger)
+
+	// 初始化 ASR Handler
+	asrServiceAddr := os.Getenv("ASR_SERVICE_ADDR")
+	if asrServiceAddr == "" {
+		// 检查K8s环境变量
+		asrHost := os.Getenv("ARKSTUDY_ASR_SERVICE_SERVICE_HOST")
+		asrPort := os.Getenv("ARKSTUDY_ASR_SERVICE_SERVICE_PORT")
+		if asrHost != "" && asrPort != "" {
+			asrServiceAddr = asrHost + ":" + asrPort
+		} else {
+			asrServiceAddr = "asr-service:50057"
+		}
+	}
+	log.Printf("ASR service address: %s", asrServiceAddr)
+	asrHandler := handler.NewASRHandler(asrServiceAddr, logger)
+
+	// 初始化 OCR Handler
+	ocrHandler := handler.NewOCRHandler()
+
+	r := router.Setup(authHandler, userHandler, materialHandler, llmHandler, quizHandler, asrHandler, ocrHandler)
 
 	// 添加 /metrics 端点到主服务器
 	r.GET("/metrics", gin.WrapH(promhttp.Handler()))

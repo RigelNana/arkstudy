@@ -6,17 +6,21 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
   "fastapi",
-  "grpcio",
+  "grpcio>=1.75.0",
   "grpcio-tools",
   "uvicorn",
   "SQLAlchemy>=2.0",
   "asyncpg",
   "python-dotenv",
   "httpx",
+  "openai>=1.0.0",
   "tiktoken>=0.7.0",
   "pgvector>=0.3.4",
   "prometheus_fastapi_instrumentator",
-  "aiokafka"
+  "aiokafka",
+  "minio",
+  "pypdf",
+  "python-docx"
 ]
 
 [tool.uv]

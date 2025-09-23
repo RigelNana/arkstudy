@@ -23,10 +23,11 @@ type DatabaseConfig struct {
 	OCRGRPCAddr      string
 	JWTExpireMins    int
 	// Kafka
-	KafkaBrokers           string
-	KafkaTopicOCRReqs      string
-	KafkaTopicFileProcess  string
-	KafkaGroupID           string
+	KafkaBrokers            string
+	KafkaTopicOCRReqs       string
+	KafkaTopicFileProcess   string
+	KafkaTopicTextExtracted string
+	KafkaGroupID            string
 }
 
 type MinIOConfig struct {
@@ -44,20 +45,21 @@ func LoadConfig() *Config {
 	}
 	return &Config{
 		Database: DatabaseConfig{
-			DBUser:            os.Getenv("DB_USER"),
-			DBPassword:        os.Getenv("DB_PASSWORD"),
-			DBName:            os.Getenv("DB_NAME"),
-			DBHost:            os.Getenv("DB_HOST"),
-			DBPort:            os.Getenv("DB_PORT"),
-			JWTSecret:         os.Getenv("JWT_SECRET"),
-			MaterialGRPCAddr:  os.Getenv("MATERIAL_GRPC_ADDR"),
-			LLMGRPCAddr:       os.Getenv("LLM_GRPC_ADDR"),
-			OCRGRPCAddr:       os.Getenv("OCR_GRPC_ADDR"),
-			JWTExpireMins:     60,
-			KafkaBrokers:           os.Getenv("KAFKA_BROKERS"),
-			KafkaTopicOCRReqs:      os.Getenv("KAFKA_TOPIC_OCR_REQUESTS"),
-			KafkaTopicFileProcess:  os.Getenv("KAFKA_TOPIC_FILE_PROCESSING"),
-			KafkaGroupID:           os.Getenv("KAFKA_GROUP_ID"),
+			DBUser:                  os.Getenv("DB_USER"),
+			DBPassword:              os.Getenv("DB_PASSWORD"),
+			DBName:                  os.Getenv("DB_NAME"),
+			DBHost:                  os.Getenv("DB_HOST"),
+			DBPort:                  os.Getenv("DB_PORT"),
+			JWTSecret:               os.Getenv("JWT_SECRET"),
+			MaterialGRPCAddr:        os.Getenv("MATERIAL_GRPC_ADDR"),
+			LLMGRPCAddr:             os.Getenv("LLM_GRPC_ADDR"),
+			OCRGRPCAddr:             os.Getenv("OCR_GRPC_ADDR"),
+			JWTExpireMins:           60,
+			KafkaBrokers:            os.Getenv("KAFKA_BROKERS"),
+			KafkaTopicOCRReqs:       os.Getenv("KAFKA_TOPIC_OCR_REQUESTS"),
+			KafkaTopicFileProcess:   os.Getenv("KAFKA_TOPIC_FILE_PROCESSING"),
+			KafkaTopicTextExtracted: os.Getenv("KAFKA_TOPIC_TEXT_EXTRACTED"),
+			KafkaGroupID:            os.Getenv("KAFKA_GROUP_ID"),
 		},
 		MinIO: MinIOConfig{
 			Endpoint:        os.Getenv("MINIO_ENDPOINT"),

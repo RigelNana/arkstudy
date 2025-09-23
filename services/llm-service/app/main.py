@@ -2,8 +2,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI, Body
 import grpc
-# TODO: Re-enable when prometheus issue is resolved
-# from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.proto.llm import llm_pb2_grpc
 from app.grpc_handlers.llm_handler import LLMServiceHandler
@@ -16,10 +15,8 @@ import asyncio
 
 app = FastAPI(title="LLM Service")
 
-# TODO: Re-enable when prometheus issue is resolved
 # 启用 Prometheus 指标
-# instrumentator = Instrumentator()
-# instrumentator.instrument(app).expose(app)
+Instrumentator().instrument(app).expose(app)
 
 _svc = None
 
@@ -81,7 +78,7 @@ async def ingest_text(
     chunks = chunk_text(content, max_tokens=max_chunk_tokens)
     inserted = 0
     for ch in chunks:
-        await _svc.generate_embeddings(ch, material_id=material_id, content_type="text")
+        await _svc.generate_embeddings(ch, material_id=material_id, content_type="text", user_id=user_id)
         inserted += 1
     return {"success": True, "inserted": inserted, "material_id": material_id, "user_id": user_id}
 

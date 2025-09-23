@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(authHandler *handler.AuthHandler, userHandler *handler.UserHandler, materialHandler *handler.MaterialHandler, llmHandler *handler.LLMHandler) *gin.Engine {
+func Setup(authHandler *handler.AuthHandler, userHandler *handler.UserHandler, materialHandler *handler.MaterialHandler, llmHandler *handler.LLMHandler, quizHandler *handler.QuizHandler, asrHandler *handler.ASRHandler, ocrHandler *handler.OCRHandler) *gin.Engine {
 	r := gin.Default()
 
 	// 添加 Prometheus 中间件
@@ -55,6 +55,23 @@ func Setup(authHandler *handler.AuthHandler, userHandler *handler.UserHandler, m
 			protected.GET("/ai/ask/stream", llmHandler.AskStream)
 			protected.POST("/ai/ask/stream", llmHandler.AskStream)
 			protected.GET("/ai/search", llmHandler.Search)
+
+			// Quiz 自动出题相关路由（需要认证）
+			protected.POST("/quiz/generate", quizHandler.GenerateQuiz)
+			protected.GET("/quiz/:questionId", quizHandler.GetQuiz)
+			protected.GET("/quiz", quizHandler.ListQuizzes)
+			protected.POST("/quiz/:questionId/submit", quizHandler.SubmitAnswer)
+			protected.GET("/quiz/user/:userId/history", quizHandler.GetUserHistory)
+			protected.GET("/quiz/user/:userId/stats", quizHandler.GetKnowledgeStats)
+
+			// ASR 语音识别相关路由（需要认证）
+			protected.POST("/asr/process", asrHandler.ProcessVideo)
+			protected.GET("/asr/segments/:material_id", asrHandler.GetSegments)
+			protected.POST("/asr/search", asrHandler.SearchSegments)
+			protected.GET("/asr/health", asrHandler.HealthCheck)
+
+			// OCR 相关路由 (需要认证)
+			protected.POST("/ocr/process", ocrHandler.ProcessOCR)
 		}
 	}
 	return r

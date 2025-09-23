@@ -4,6 +4,8 @@ import (
 	"log"
 	"net"
 
+	"github.com/RigelNana/arkstudy/pkg/metrics"
+	grpcMetrics "github.com/RigelNana/arkstudy/pkg/metrics/grpc"
 	"github.com/RigelNana/arkstudy/proto/material"
 	"github.com/RigelNana/arkstudy/services/material-service/config"
 	"github.com/RigelNana/arkstudy/services/material-service/database"
@@ -23,6 +25,10 @@ func autoMigrate(db *gorm.DB) {
 }
 
 func main() {
+	// 启动 Prometheus metrics 服务器
+	metrics.StartMetricsServer("2112")
+	log.Printf("Prometheus metrics server started on :2112")
+
 	db := database.InitDB()
 	autoMigrate(db)
 
@@ -34,7 +40,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create material service: %v", err)
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(grpcMetrics.UnaryServerInterceptor("material-service")),
+		grpc.StreamInterceptor(grpcMetrics.StreamServerInterceptor("material-service")),
+	)
 	material.RegisterMaterialServiceServer(grpcServer, rpc.NewMaterialRPCServer(service))
 	// Enable server reflection
 	reflection.Register(grpcServer)

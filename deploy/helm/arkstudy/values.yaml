@@ -307,6 +307,8 @@ thirdParty:
     enabled: false
     image: confluentinc/cp-kafka:latest
     port: 9092
+    createTopics:
+      enabled: false
     # KRaft single-node minimal config via env
     clusterId: "6LZMxk8NTXidS6TGH1Zk1w"
     storage:

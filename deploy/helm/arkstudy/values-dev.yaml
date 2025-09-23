@@ -2,7 +2,7 @@
 namespace: arkstudy-dev
 
 monitoring:
-  enabled: true
+  enabled: false
   scrapeInterval: 15s
 
 # 默认复用父 chart 的 global resources 为空；按需覆盖
@@ -11,7 +11,7 @@ resources: {}
 services:
   gateway:
     enabled: true
-    image: rigelnana/arkstudy-gateway:latest
+    image: arkstudy/arkstudy-gateway:latest
     imagePullPolicy: IfNotPresent
     replicas: 1
     containerPort: 8080
@@ -45,11 +45,13 @@ services:
       USER_GRPC_ADDR: arkstudy-user-service:50052
       MATERIAL_GRPC_ADDR: arkstudy-material-service:50053
       LLM_GRPC_ADDR: arkstudy-llm-service:50054
+      QUIZ_SERVICE_ADDR: arkstudy-quiz-service:50056
+      ASR_SERVICE_ADDR: arkstudy-asr-service:50057
     serviceMonitorEnabled: true
 
   auth-service:
     enabled: true
-    image: rigelnana/arkstudy-auth-service:latest
+    image: arkstudy/arkstudy-auth-service:latest
     imagePullPolicy: IfNotPresent
     replicas: 1
     containerPort: 50051
@@ -78,7 +80,7 @@ services:
 
   user-service:
     enabled: true
-    image: rigelnana/arkstudy-user-service:latest
+    image: arkstudy/arkstudy-user-service:latest
     imagePullPolicy: IfNotPresent
     replicas: 1
     containerPort: 50052
@@ -107,7 +109,7 @@ services:
 
   material-service:
     enabled: true
-    image: rigelnana/arkstudy-material-service:latest
+    image: arkstudy/arkstudy-material-service:latest
     imagePullPolicy: Never
     replicas: 1
     containerPort: 50053
@@ -130,13 +132,14 @@ services:
       KAFKA_GROUP_ID: material-worker
       KAFKA_TOPIC_OCR_REQUESTS: ocr.requests
       KAFKA_TOPIC_FILE_PROCESSING: file.processing
+      KAFKA_TOPIC_TEXT_EXTRACTED: text.extracted
       LLM_GRPC_ADDR: arkstudy-llm-service:50054
       OCR_GRPC_ADDR: arkstudy-ocr-service:50055
     serviceMonitorEnabled: true
 
   ocr-service:
     enabled: true
-    image: rigelnana/arkstudy-ocr-service:latest
+    image: arkstudy/arkstudy-ocr-service:latest
     imagePullPolicy: IfNotPresent
     replicas: 1
     containerPort: 50055
@@ -148,34 +151,102 @@ services:
       - secretRef: { name: minio-secret-dev }
     config:
       MINIO_ENDPOINT: arkstudy-minio:9000
+      OPENAI_BASE_URL: "https://yunwu.ai/v1"
+      OPENAI_API_KEY: "sk-m1UJT3JX0jmOPnDDlgMnXWENNe1hlmFlgitIN1R1nwk7IzIO"
+      OPENAI_MODEL: "gpt-4o-mini"
+      KAFKA_BROKERS: arkstudy-kafka:9092
+      KAFKA_TOPIC: ocr.requests
+      KAFKA_GROUP_ID: ocr-worker
     serviceMonitorEnabled: true
 
   llm-service:
     enabled: true
-    image: rigelnana/arkstudy-llm-service:latest
+    image: arkstudy/arkstudy-llm-service:latest
     imagePullPolicy: Never
     replicas: 1
     containerPort: 8000
     service:
       type: ClusterIP
       port: 8000
+      extraPorts:
+      - name: grpc
+        port: 50054
+        targetPort: 50054
     envFrom:
       - configMapRef: { name: arkstudy-llm-service }
       - secretRef: { name: postgres-secret-dev }
     config:
       OPENAI_BASE_URL: "https://yunwu.ai/v1"
-      OPENAI_MODEL: "gpt-5-chat-latest"
+      OPENAI_API_KEY: "sk-m1UJT3JX0jmOPnDDlgMnXWENNe1hlmFlgitIN1R1nwk7IzIO"
+      OPENAI_MODEL: "gpt-4o-mini"
       OPENAI_EMBEDDING_MODEL: "text-embedding-3-small"
-      VECTOR_DIM: "128"
-      LLM_VECTOR_DIM: "128"
+      VECTOR_DIM: "1536"
+      LLM_VECTOR_DIM: "1536"
       KAFKA_BROKERS: "arkstudy-kafka:9092"
       KAFKA_GROUP_ID: "llm-service-group"
       KAFKA_TOPIC_FILE_PROCESSING: "file.processing"
+      KAFKA_TOPIC_TEXT_EXTRACTED: "text.extracted"
       DB_USER: "postgres"
       DB_HOST: "arkstudy-postgres"
       DB_PORT: "5432"
       DB_NAME: "arkdb"
+      LLM_GRPC_HOST: "[::]"
+      LLM_GRPC_PORT: "50054"
+      LLM_HTTP_HOST: "0.0.0.0"
+      LLM_HTTP_PORT: "8000"
+    serviceMonitorEnabled: false
+
+  quiz-service:
+    enabled: true
+    image: arkstudy/arkstudy-quiz-service:latest
+    imagePullPolicy: IfNotPresent
+    replicas: 1
+    containerPort: 50056
+    service:
+      type: ClusterIP
+      port: 50056
+    envFrom:
+      - secretRef: { name: openai-secret-dev }
+      - configMapRef: { name: arkstudy-quiz-service }
+      - secretRef: { name: db-app-secret-dev }
+    config:
+      OPENAI_BASE_URL: "https://yunwu.ai/v1"
+      DB_HOST: arkstudy-postgres
+      DB_PORT: "5432"
+      DB_NAME: arkdb
+      GRPC_PORT: "50056"
+      LLM_SERVICE_ADDR: arkstudy-llm-service:50054
+      OPENAI_MODEL: "gpt-3.5-turbo"
     serviceMonitorEnabled: true
+
+  asr-service:
+    enabled: true
+    image: arkstudy/asr-service:latest
+    imagePullPolicy: Never
+    replicas: 1
+    containerPort: 50057
+    service:
+      type: ClusterIP
+      port: 50057
+    envFrom:
+      - secretRef: { name: openai-secret-dev }
+      - configMapRef: { name: arkstudy-asr-service }
+      - secretRef: { name: db-app-secret-dev }
+    config:
+      OPENAI_BASE_URL: "https://yunwu.ai/v1"
+      OPENAI_MODEL: "whisper-1"
+      DB_HOST: arkstudy-postgres
+      DB_PORT: "5432"
+      DB_NAME: arkdb
+      ASR_PORT: "50057"
+      GRPC_PORT: "50057"
+      ASR_HOST: "0.0.0.0"
+      FFMPEG_BINARY_PATH: "ffmpeg"
+      TEMP_DIR: "/tmp/asr"
+      AUDIO_FORMAT: "wav"
+      MAX_FILE_SIZE: "104857600"
+      ALLOWED_FORMATS: "mp4,avi,mov,mkv,webm"
+    serviceMonitorEnabled: false
 
   # 开发环境内置一个简单的 MinIO 部署，仅供本地演示与联调（非生产）
   minio:
@@ -224,6 +295,8 @@ thirdParty:
     enabled: true
     image: confluentinc/cp-kafka:latest
     port: 9092
+    createTopics:
+      enabled: true
     clusterId: "6LZMxk8NTXidS6TGH1Zk1w"
     storage:
       enabled: false

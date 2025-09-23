@@ -13,18 +13,22 @@ import (
 	"strings"
 	"time"
 
+	"encoding/base64"
+
 	"github.com/RigelNana/arkstudy/proto/ai"
 	"github.com/RigelNana/arkstudy/services/ocr-service/config"
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/sashabaranov/go-openai"
 )
 
 type OCRService struct {
 	ai.UnimplementedAIServiceServer
-	cfg         *config.Config
-	minio       *minio.Client
-	statusStore map[string]*ai.TaskStatusResponse
+	cfg          *config.Config
+	minio        *minio.Client
+	openaiClient *openai.Client
+	statusStore  map[string]*ai.TaskStatusResponse
 	// 缓存最终 OCR 结果，键为 task_id
 	ocrStore map[string]*ai.OCRResponse
 }
@@ -37,7 +41,20 @@ func NewOCRService(cfg *config.Config) (*OCRService, error) {
 	if err != nil {
 		return nil, fmt.Errorf("minio client: %w", err)
 	}
-	return &OCRService{cfg: cfg, minio: mc, statusStore: map[string]*ai.TaskStatusResponse{}, ocrStore: map[string]*ai.OCRResponse{}}, nil
+
+	openaiConfig := openai.DefaultConfig(cfg.OpenAI.APIKey)
+	if cfg.OpenAI.BaseURL != "" {
+		openaiConfig.BaseURL = cfg.OpenAI.BaseURL
+	}
+	openaiClient := openai.NewClientWithConfig(openaiConfig)
+
+	return &OCRService{
+		cfg:          cfg,
+		minio:        mc,
+		openaiClient: openaiClient,
+		statusStore:  map[string]*ai.TaskStatusResponse{},
+		ocrStore:     map[string]*ai.OCRResponse{},
+	}, nil
 }
 
 func (s *OCRService) getTask(taskID string) *ai.TaskStatusResponse {
@@ -105,7 +122,7 @@ func (s *OCRService) runOCRTask(req *ai.OCRRequest, t *ai.TaskStatusResponse) {
 	}()
 
 	// 1) 下载文件字节
-	data, filename, err := s.fetchFile(req.FileUrl)
+	data, _, err := s.fetchFile(req.FileUrl)
 	if err != nil {
 		t.Status = ai.TaskStatus_FAILED
 		t.ErrorMessage = fmt.Sprintf("download error: %v", err)
@@ -115,11 +132,37 @@ func (s *OCRService) runOCRTask(req *ai.OCRRequest, t *ai.TaskStatusResponse) {
 	t.Message = "ocr running"
 	t.Progress = 0.3
 
-	// 2) 调用 PaddleOCR HTTP 接口
-	txt, boxes, conf, err := s.callPaddleOCR(data, filename)
+	// 2) 调用 OpenAI GPT-4o-mini
+	encoded := base64.StdEncoding.EncodeToString(data)
+	imageUrl := fmt.Sprintf("data:%s;base64,%s", http.DetectContentType(data), encoded)
+
+	resp, err := s.openaiClient.CreateChatCompletion(
+		context.Background(),
+		openai.ChatCompletionRequest{
+			Model: s.cfg.OpenAI.Model,
+			Messages: []openai.ChatCompletionMessage{
+				{
+					Role: openai.ChatMessageRoleUser,
+					MultiContent: []openai.ChatMessagePart{
+						{
+							Type: openai.ChatMessagePartTypeText,
+							Text: "Extract all text from this image.",
+						},
+						{
+							Type: openai.ChatMessagePartTypeImageURL,
+							ImageURL: &openai.ChatMessageImageURL{
+								URL: imageUrl,
+							},
+						},
+					},
+				},
+			},
+		},
+	)
+
 	if err != nil {
 		t.Status = ai.TaskStatus_FAILED
-		t.ErrorMessage = fmt.Sprintf("paddleocr error: %v", err)
+		t.ErrorMessage = fmt.Sprintf("openai api error: %v", err)
 		t.Message = "ocr failed"
 		return
 	}
@@ -133,9 +176,9 @@ func (s *OCRService) runOCRTask(req *ai.OCRRequest, t *ai.TaskStatusResponse) {
 	s.ocrStore[req.TaskId] = &ai.OCRResponse{
 		TaskId:     req.TaskId,
 		Status:     ai.TaskStatus_COMPLETED,
-		Text:       txt,
-		Confidence: conf,
-		Boxes:      boxes,
+		Text:       resp.Choices[0].Message.Content,
+		Confidence: 1.0, // OpenAI 不直接提供置信度，默认为 1.0
+		Boxes:      []*ai.BoundingBox{},
 	}
 }
 

@@ -7,7 +7,10 @@ COPY services/user-service/go.mod services/user-service/go.sum ./services/user-s
 COPY services/ocr-service/go.mod services/ocr-service/go.sum ./services/ocr-service/
 COPY pkg/metrics/go.mod pkg/metrics/go.sum ./pkg/metrics/
 COPY gateway/go.mod gateway/go.sum ./gateway/
+COPY services/asr-service/go.mod services/asr-service/go.sum ./services/asr-service/
+COPY services/quiz-service/go.mod services/quiz-service/go.sum ./services/quiz-service/
 COPY proto proto
+COPY pkg/ ./pkg/
 RUN go work sync && go mod download
 COPY services/material-service/ ./services/material-service/
 WORKDIR /app/services/material-service

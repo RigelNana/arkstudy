@@ -282,6 +282,7 @@ type SearchRequest struct {
 	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
 	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	TopK          int32                  `protobuf:"varint,3,opt,name=top_k,json=topK,proto3" json:"top_k,omitempty"`
+	MaterialIds   []string               `protobuf:"bytes,4,rep,name=material_ids,json=materialIds,proto3" json:"material_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -335,6 +336,13 @@ func (x *SearchRequest) GetTopK() int32 {
 		return x.TopK
 	}
 	return 0
+}
+
+func (x *SearchRequest) GetMaterialIds() []string {
+	if x != nil {
+		return x.MaterialIds
+	}
+	return nil
 }
 
 type SearchResult struct {
@@ -773,11 +781,12 @@ const file_llm_llm_proto_rawDesc = "" +
 	"\bmetadata\x18\x03 \x03(\v2\x1d.llm.TokenChunk.MetadataEntryR\bmetadata\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"S\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"v\n" +
 	"\rSearchRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x13\n" +
-	"\x05top_k\x18\x03 \x01(\x05R\x04topK\"\xee\x01\n" +
+	"\x05top_k\x18\x03 \x01(\x05R\x04topK\x12!\n" +
+	"\fmaterial_ids\x18\x04 \x03(\tR\vmaterialIds\"\xee\x01\n" +
 	"\fSearchResult\x12\x1f\n" +
 	"\vmaterial_id\x18\x01 \x01(\tR\n" +
 	"materialId\x12\x18\n" +

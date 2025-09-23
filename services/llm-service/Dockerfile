@@ -8,8 +8,9 @@ RUN pip install --no-cache-dir uv
 WORKDIR /app
 
 # Copy project files
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen
+COPY pyproject.toml uv.lock requirements.txt ./
+RUN uv venv
+RUN . .venv/bin/activate && uv pip install -r requirements.txt --no-cache
 
 COPY app ./app
 

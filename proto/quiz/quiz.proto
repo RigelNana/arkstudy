@@ -1,0 +1,171 @@
+syntax = "proto3";
+
+package quiz;
+
+option go_package = "github.com/RigelNana/arkstudy/proto/quiz";
+
+// Quiz服务定义
+service QuizService {
+  // 基于材料内容生成题目
+  rpc GenerateQuiz(GenerateQuizRequest) returns (GenerateQuizResponse);
+  
+  // 获取题目详情
+  rpc GetQuiz(GetQuizRequest) returns (GetQuizResponse);
+  
+  // 获取题目列表
+  rpc ListQuizzes(ListQuizzesRequest) returns (ListQuizzesResponse);
+  
+  // 提交答案
+  rpc SubmitAnswer(SubmitAnswerRequest) returns (SubmitAnswerResponse);
+  
+  // 获取用户答题历史
+  rpc GetUserQuizHistory(GetUserQuizHistoryRequest) returns (GetUserQuizHistoryResponse);
+  
+  // 获取知识点掌握度统计
+  rpc GetKnowledgeStats(GetKnowledgeStatsRequest) returns (GetKnowledgeStatsResponse);
+}
+
+// 题目类型枚举
+enum QuestionType {
+  MULTIPLE_CHOICE = 0;   // 选择题
+  FILL_BLANK = 1;        // 填空题
+  SHORT_ANSWER = 2;      // 简答题
+  TRUE_FALSE = 3;        // 判断题
+  ESSAY = 4;             // 论述题
+}
+
+// 题目难度枚举
+enum DifficultyLevel {
+  EASY = 0;
+  MEDIUM = 1;
+  HARD = 2;
+}
+
+// 生成题目请求
+message GenerateQuizRequest {
+  string material_id = 1;           // 材料ID
+  string user_id = 2;               // 用户ID
+  repeated QuestionType types = 3;   // 题目类型
+  DifficultyLevel difficulty = 4;    // 难度级别
+  int32 count = 5;                  // 生成题目数量
+  repeated string knowledge_points = 6; // 指定知识点
+}
+
+// 生成题目响应
+message GenerateQuizResponse {
+  bool success = 1;
+  string message = 2;
+  repeated Question questions = 3;
+}
+
+// 题目结构
+message Question {
+  string question_id = 1;
+  QuestionType type = 2;
+  string content = 3;              // 题目内容
+  repeated string options = 4;      // 选项（选择题用）
+  string correct_answer = 5;        // 正确答案
+  string explanation = 6;           // 解析
+  DifficultyLevel difficulty = 7;
+  repeated string knowledge_points = 8; // 关联知识点
+  string material_id = 9;          // 来源材料
+  string created_at = 10;
+}
+
+// 获取题目请求
+message GetQuizRequest {
+  string question_id = 1;
+}
+
+// 获取题目响应
+message GetQuizResponse {
+  bool success = 1;
+  string message = 2;
+  Question question = 3;
+}
+
+// 题目列表请求
+message ListQuizzesRequest {
+  string user_id = 1;
+  string material_id = 2;
+  QuestionType type = 3;
+  DifficultyLevel difficulty = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+// 题目列表响应
+message ListQuizzesResponse {
+  bool success = 1;
+  string message = 2;
+  repeated Question questions = 3;
+  int32 total = 4;
+  int32 page = 5;
+  int32 page_size = 6;
+}
+
+// 提交答案请求
+message SubmitAnswerRequest {
+  string question_id = 1;
+  string user_id = 2;
+  string answer = 3;               // 用户答案
+}
+
+// 提交答案响应
+message SubmitAnswerResponse {
+  bool success = 1;
+  string message = 2;
+  bool is_correct = 3;             // 是否正确
+  float score = 4;                 // 得分
+  string correct_answer = 5;       // 正确答案
+  string explanation = 6;          // 解析
+}
+
+// 用户答题记录
+message UserAnswer {
+  string answer_id = 1;
+  string question_id = 2;
+  string user_id = 3;
+  string answer = 4;
+  bool is_correct = 5;
+  float score = 6;
+  string answered_at = 7;
+}
+
+// 获取用户答题历史请求
+message GetUserQuizHistoryRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+// 获取用户答题历史响应
+message GetUserQuizHistoryResponse {
+  bool success = 1;
+  string message = 2;
+  repeated UserAnswer answers = 3;
+  int32 total = 4;
+}
+
+// 知识点统计
+message KnowledgePointStats {
+  string knowledge_point = 1;
+  int32 total_questions = 2;       // 总题数
+  int32 correct_answers = 3;       // 正确题数
+  float accuracy_rate = 4;         // 正确率
+  DifficultyLevel avg_difficulty = 5; // 平均难度
+}
+
+// 获取知识点掌握度统计请求
+message GetKnowledgeStatsRequest {
+  string user_id = 1;
+  string material_id = 2;          // 可选，指定材料
+}
+
+// 获取知识点掌握度统计响应
+message GetKnowledgeStatsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated KnowledgePointStats stats = 3;
+  float overall_accuracy = 4;      // 总体正确率
+}

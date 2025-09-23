@@ -6,7 +6,10 @@ COPY services/auth-service/go.mod services/auth-service/go.sum ./services/auth-s
 COPY services/user-service/go.mod services/user-service/go.sum ./services/user-service/
 COPY services/material-service/go.mod services/material-service/go.sum ./services/material-service/
 COPY gateway/go.mod gateway/go.sum ./gateway/
+COPY services/asr-service/go.mod services/asr-service/go.sum ./services/asr-service/
+COPY services/quiz-service/go.mod services/quiz-service/go.sum ./services/quiz-service/
 COPY proto proto
+COPY pkg/ ./pkg/
 RUN go work sync && go mod download
 COPY services/ocr-service/ ./services/ocr-service/
 WORKDIR /app/services/ocr-service

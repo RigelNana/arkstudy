@@ -5,6 +5,10 @@ import re
 from typing import Dict, Any, List
 from dataclasses import dataclass
 
+import io
+from minio import Minio
+from pypdf import PdfReader
+import docx
 from app.config import get_settings
 from app.core.chunker import chunk_text
 from app.core.embedding import embed_text
@@ -29,22 +33,29 @@ class DocumentProcessor:
     
     def __init__(self):
         self.settings = get_settings()
+        self.minio_client = Minio(
+            self.settings.minio_endpoint,
+            access_key=self.settings.minio_access_key,
+            secret_key=self.settings.minio_secret_key,
+            secure=False
+        )
         
     async def extract_text_from_minio(self, file_path: str, file_type: str) -> str:
         """从 MinIO 提取文本内容"""
         try:
-            # 模拟从 MinIO 下载文件并提取文本
-            # 实际实现需要集成 MinIO 客户端和文档解析库
             logger.info(f"Extracting text from {file_path} (type: {file_type})")
             
-            # TODO: 实现真实的文件下载和解析
-            # 根据文件类型选择不同的解析策略
+            response = self.minio_client.get_object(self.settings.minio_bucket_name, file_path)
+            file_data = response.read()
+            response.close()
+            response.release_conn()
+
             if file_type.lower() in ['pdf']:
-                return await self._extract_pdf_content(file_path)
+                return self._extract_pdf_content(file_data)
             elif file_type.lower() in ['docx', 'doc']:
-                return await self._extract_docx_content(file_path)
+                return self._extract_docx_content(file_data)
             elif file_type.lower() in ['txt', 'md']:
-                return await self._extract_text_content(file_path)
+                return self._extract_text_content(file_data)
             else:
                 logger.warning(f"Unsupported file type: {file_type}")
                 return ""
@@ -53,20 +64,27 @@ class DocumentProcessor:
             logger.error(f"Error extracting text from {file_path}: {e}")
             return ""
     
-    async def _extract_pdf_content(self, file_path: str) -> str:
+    def _extract_pdf_content(self, file_data: bytes) -> str:
         """提取 PDF 内容"""
-        # TODO: 使用 PyPDF2, pdfplumber 或 OCR 提取内容
-        return f"PDF content from {file_path} (mock)"
+        text = ""
+        with io.BytesIO(file_data) as f:
+            reader = PdfReader(f)
+            for page in reader.pages:
+                text += page.extract_text()
+        return text
     
-    async def _extract_docx_content(self, file_path: str) -> str:
+    def _extract_docx_content(self, file_data: bytes) -> str:
         """提取 DOCX 内容"""
-        # TODO: 使用 python-docx 提取内容
-        return f"DOCX content from {file_path} (mock)"
+        text = ""
+        with io.BytesIO(file_data) as f:
+            doc = docx.Document(f)
+            for para in doc.paragraphs:
+                text += para.text + "\n"
+        return text
     
-    async def _extract_text_content(self, file_path: str) -> str:
+    def _extract_text_content(self, file_data: bytes) -> str:
         """提取纯文本内容"""
-        # TODO: 直接读取文本文件
-        return f"Text content from {file_path} (mock)"
+        return file_data.decode('utf-8')
     
     async def intelligent_chunking(
         self, 
@@ -354,6 +372,7 @@ class DocumentProcessor:
             return {}
     
     def _classify_content(self, content: str) -> str:
+        #TODO: 结合更复杂的模型进行分类
         """简单的内容分类"""
         # 基于关键词的简单分类
         if any(word in content for word in ['数学', '计算', '公式', '证明']):
@@ -368,6 +387,7 @@ class DocumentProcessor:
             return 'general'
     
     def _assess_difficulty(self, content: str) -> str:
+        #TODO: 结合更复杂的模型进行评估
         """评估内容难度"""
         # 简单的难度评估
         word_count = len(re.findall(r'[\u4e00-\u9fff]', content))
@@ -450,4 +470,68 @@ class DocumentProcessor:
             
         except Exception as e:
             logger.error(f"Error processing document {file_id}: {e}")
+            raise
+         
+    async def process_text(
+        self,
+        content: str,
+        file_id: str,
+        user_id: str,
+        file_type: str
+    ) -> List[str]:
+        """完整的纯文本处理流程"""
+        try:
+            logger.info(f"Processing text for file {file_id}")
+
+            if not content.strip():
+                logger.warning(f"No content provided for {file_id}")
+                return []
+
+            # 2. 智能分块
+            chunks = await self.intelligent_chunking(content, file_type)
+            if not chunks:
+                logger.warning(f"No chunks created from {file_id}")
+                return []
+
+            # 3. 向量化和存储
+            chunk_ids = []
+            for i, chunk in enumerate(chunks):
+                try:
+                    # 生成嵌入向量
+                    embedding = embed_text(chunk.content)
+                    
+                    # 准备元数据
+                    metadata = {
+                        'chunk_index': i,
+                        'total_chunks': len(chunks),
+                        'file_type': file_type,
+                        'difficulty': chunk.metadata.get('difficulty', 'beginner') if chunk.metadata else 'beginner',
+                        'subject': chunk.metadata.get('subject', '') if chunk.metadata else '',
+                        'tags': chunk.metadata.get('tags', []) if chunk.metadata else [],
+                        'level': chunk.level,
+                        'language': chunk.language
+                    }
+                    
+                    # 存储到向量数据库
+                    chunk_id = await pg_vector_store.add_chunk(
+                        content=chunk.content,
+                        embedding=embedding,
+                        metadata=metadata,
+                        chunk_type=chunk.type,
+                        file_id=file_id,
+                        user_id=user_id
+                    )
+                    
+                    chunk_ids.append(chunk_id)
+                    logger.debug(f"Stored chunk {i+1}/{len(chunks)} with ID {chunk_id}")
+                    
+                except Exception as e:
+                    logger.error(f"Error processing chunk {i}: {e}")
+                    continue
+            
+            logger.info(f"Successfully processed {len(chunk_ids)} chunks for file {file_id}")
+            return chunk_ids
+            
+        except Exception as e:
+            logger.error(f"Error processing text for file {file_id}: {e}")
             raise

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"log"
 	"os"
 	"strconv"
 
@@ -39,20 +40,43 @@ func NewAuthService(repo repository.AuthRepository) AuthService {
 	minutes, _ := strconv.Atoi(expireStr)
 	// 建立 user-service gRPC 连接
 	userAddr := os.Getenv("USER_GRPC_ADDR")
+	log.Printf("USER_GRPC_ADDR environment variable: %s", userAddr)
+
 	if userAddr == "" {
 		// 尝试使用 K8s 服务发现
 		userHost := os.Getenv("ARKSTUDY_USER_SERVICE_SERVICE_HOST")
 		userPort := os.Getenv("ARKSTUDY_USER_SERVICE_SERVICE_PORT")
+		log.Printf("K8s service discovery - Host: %s, Port: %s", userHost, userPort)
+
 		if userHost != "" && userPort != "" {
 			userAddr = userHost + ":" + userPort
 		} else {
 			userAddr = "localhost:50052" // 单机默认端口
 		}
 	}
+
+	// 如果userAddr是服务名，则强制使用IP地址
+	if userAddr == "user-service:50052" {
+		userHost := os.Getenv("ARKSTUDY_USER_SERVICE_SERVICE_HOST")
+		userPort := os.Getenv("ARKSTUDY_USER_SERVICE_SERVICE_PORT")
+		if userHost != "" && userPort != "" {
+			userAddr = userHost + ":" + userPort
+			log.Printf("Switched from service name to IP address: %s", userAddr)
+		}
+	}
+
+	log.Printf("Final user-service address: %s", userAddr)
+	log.Printf("Attempting to connect to user-service at: %s", userAddr)
 	conn, err := grpc.Dial(userAddr, grpc.WithInsecure())
 	var client user.UserServiceClient
-	if err == nil { // 若失败，client 为空，后续 Register 将报错提示
+	if err != nil {
+		// 记录错误但不终止服务启动，后续Register会报错提示
+		// TODO: 改进为重试连接机制
+		log.Printf("Failed to connect to user-service: %v", err)
+		client = nil
+	} else {
 		client = user.NewUserServiceClient(conn)
+		log.Printf("Successfully connected to user-service at: %s", userAddr)
 	}
 	return &AuthServiceImpl{repo: repo, tokenExpireMinutes: minutes, userClient: client}
 }
@@ -62,8 +86,19 @@ func (s *AuthServiceImpl) Register(userID uuid.UUID, rawPassword string) error {
 	if s.userClient == nil {
 		return errors.New("user-service client not initialized")
 	}
-	_, err := s.userClient.GetUserByID(context.Background(), &user.GetUserByIDRequest{Id: userID.String()})
+
+	// 添加详细日志
+	log.Printf("Attempting to verify user %s exists in user-service", userID.String())
+
+	resp, err := s.userClient.GetUserByID(context.Background(), &user.GetUserByIDRequest{Id: userID.String()})
 	if err != nil {
+		log.Printf("gRPC call to user-service failed: %v", err)
+		return errors.New("error calling user-service: " + err.Error())
+	}
+
+	log.Printf("GetUserByID response: Found=%v, Message=%s", resp.Found, resp.Message)
+
+	if !resp.Found {
 		return errors.New("user_id not found in user-service")
 	}
 	// 若已存在记录返回错误

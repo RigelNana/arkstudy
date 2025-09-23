@@ -9,6 +9,8 @@ import (
 
 	"strings"
 
+	"github.com/RigelNana/arkstudy/pkg/metrics"
+	grpcMetrics "github.com/RigelNana/arkstudy/pkg/metrics/grpc"
 	"github.com/RigelNana/arkstudy/proto/ai"
 	mpb "github.com/RigelNana/arkstudy/proto/material"
 	"github.com/RigelNana/arkstudy/services/ocr-service/config"
@@ -29,6 +31,10 @@ type ocrJob struct {
 }
 
 func main() {
+	// 启动 Prometheus metrics 服务器
+	metrics.StartMetricsServer("2112")
+	log.Printf("Prometheus metrics server started on :2112")
+
 	cfg := config.Load()
 	svc, err := service.NewOCRService(cfg)
 	if err != nil {
@@ -51,7 +57,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("listen: %v", err)
 	}
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(grpcMetrics.UnaryServerInterceptor("ocr-service")),
+		grpc.StreamInterceptor(grpcMetrics.StreamServerInterceptor("ocr-service")),
+	)
 	ai.RegisterAIServiceServer(grpcServer, svc)
 	// Enable server reflection
 	reflection.Register(grpcServer)
@@ -71,6 +80,14 @@ func startConsumer(cfg *config.Config, svc *service.OCRService) {
 	})
 	defer r.Close()
 	log.Printf("Kafka consumer started: topic=%s group=%s", cfg.Kafka.Topic, cfg.Kafka.GroupID)
+
+	// Kafka writer for text.extracted topic
+	textExtractedWriter := kafka.NewWriter(kafka.WriterConfig{
+		Brokers:  splitBrokers(cfg.Kafka.Brokers),
+		Topic:    "text.extracted",
+		Balancer: &kafka.LeastBytes{},
+	})
+	defer textExtractedWriter.Close()
 
 	// material-service callback client
 	conn, err := grpc.Dial(cfg.Material.Addr, grpc.WithInsecure())
@@ -148,6 +165,21 @@ func startConsumer(cfg *config.Config, svc *service.OCRService) {
 		cancel5()
 		if err != nil {
 			log.Printf("update processing result: %v", err)
+		} else if status == mpb.ProcessingStatus_COMPLETED {
+			// Publish to text.extracted topic
+			extractedPayload, _ := json.Marshal(map[string]string{
+				"material_id": job.MaterialID,
+				"user_id":     job.UserID,
+				"text":        content,
+				"source":      "ocr",
+			})
+			err = textExtractedWriter.WriteMessages(context.Background(), kafka.Message{
+				Key:   []byte(job.MaterialID),
+				Value: extractedPayload,
+			})
+			if err != nil {
+				log.Printf("failed to write message to text.extracted topic: %v", err)
+			}
 		}
 
 		// Commit offset

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, List
 import uuid
+from sqlalchemy import text
 
 from app.core.vector_store import InMemoryVectorStore
 from app.core.database import get_session_factory
@@ -144,15 +145,15 @@ class LLMService:
             session_id = uuid.uuid4().hex
         return session_id, mht
 
-    async def generate_embeddings(self, content: str, material_id: str, content_type: str) -> Dict:
+    async def generate_embeddings(self, content: str, material_id: str, content_type: str, user_id: str = "unknown") -> Dict:
         # prefer external embeddings when configured
         if self._oa.is_enabled():
             vec = await self._oa.aembedding(content)
             item = self.store.upsert_with_vector(
-                material_id=material_id, content=content, vector=vec, metadata={"content_type": content_type}
+                material_id=material_id, content=content, vector=vec, metadata={"content_type": content_type, "user_id": user_id}
             )
         else:
-            item = self.store.upsert(material_id=material_id, content=content, metadata={"content_type": content_type})
+            item = self.store.upsert(material_id=material_id, content=content, metadata={"content_type": content_type, "user_id": user_id})
         # persist if DB is configured
         if self._db_enabled:
             try:
@@ -237,31 +238,42 @@ class LLMService:
                 pass
         return len(db_rows)
 
-    async def semantic_search(self, query: str, user_id: str, top_k: int, material_ids: List[str] | None = None) -> List[Dict]:
-        # Prefer DB-side vector search when pgvector is available (DB enabled)
-        use_db = self._db_enabled
-        qv: List[float] | None = None
-        if self._oa.is_enabled():
-            qv = await self._oa.aembedding(query)
-        if use_db and qv is not None:
-            # SQLAlchemy async query using pgvector distance operator; fallback safe if not available
+    async def semantic_search(self, query: str, *, user_id: str, top_k: int = 5, material_ids: List[str] = None) -> List[Dict]:
+        print(f"[DEBUG] Received SemanticSearch request: query='{query}', user_id='{user_id}', top_k={top_k}, material_ids={material_ids}")
+        
+        # 数据库搜索优先
+        if self._db_enabled:
             try:
-                from sqlalchemy import text
-                sess_factory = get_session_factory()
-                assert sess_factory is not None
-                async with sess_factory() as sess:
-                    params = {"q": qv, "limit": int(top_k or 5)}
-                    where = ""
-                    if material_ids:
-                        where = "WHERE material_id = ANY(:mids)"
-                        params["mids"] = material_ids
-                    sql = f"""
-                        SELECT material_id, content, extra, 1 - (vector <#> :q) AS sim
-                        FROM material_chunks
-                        {where}
-                        ORDER BY vector <#> :q
+                repo = ChunkRepository()
+                sess = await repo._get_session()
+                try:
+                    if material_ids and len(material_ids) == 1:
+                        # 最简单的SQL，只筛选单个material_id
+                        sql = """
+                        SELECT material_id, content, metadata, 1.0 as score
+                        FROM knowledge_chunks 
+                        WHERE material_id = :material_id
                         LIMIT :limit
-                    """
+                        """
+                        params = {
+                            'material_id': material_ids[0],
+                            'limit': top_k or 50
+                        }
+                    else:
+                        # 只按user_id过滤
+                        sql = """
+                        SELECT material_id, content, metadata, 1.0 as score
+                        FROM knowledge_chunks 
+                        WHERE user_id = :user_id
+                        LIMIT :limit
+                        """
+                        params = {
+                            'user_id': user_id,
+                            'limit': top_k or 50
+                        }
+                    
+                    print(f"[DEBUG] Executing SQL: {sql}")
+                    print(f"[DEBUG] With params: {params}")
                     res = await sess.execute(text(sql), params)
                     out = []
                     for row in res:
@@ -271,27 +283,40 @@ class LLMService:
                             "similarity_score": float(row[3]),
                             "metadata": row[2] or {},
                         })
+                    print(f"[DEBUG] SemanticSearch found {len(out)} hits")
                     return out
-            except Exception:
+                finally:
+                    await sess.close()
+            except Exception as e:
+                print(f"[ERROR] Database search failed: {e}")
                 # fall back to in-memory search
                 pass
 
-        # In-memory fallback
-        if qv is not None:
-            results = self.store.search_by_vector(qv, top_k=top_k or 5)
-        else:
-            results = self.store.search(query, top_k=top_k or 5)
+        # In-memory fallback - 也去掉向量搜索
+        print("[DEBUG] Using in-memory fallback")
+        results = []
         allowed = set(material_ids or [])
-        out = []
-        for item, score in results:
+        
+        # 直接遍历store中的items进行material_id匹配
+        for item in self.store.items:
             if allowed and item.material_id not in allowed:
                 continue
+            if item.metadata.get("user_id") != user_id:
+                continue
+            results.append((item, 1.0))  # 固定score为1.0
+            
+        # 限制返回数量
+        results = results[:top_k or 5]
+        
+        out = []
+        for item, score in results:
             out.append({
                 "material_id": item.material_id,
                 "content": item.content,
                 "similarity_score": float(score),
                 "metadata": item.metadata,
             })
+        print(f"[DEBUG] In-memory search found {len(out)} hits")
         return out
 
     async def ask_question(self, question: str, user_id: str, material_ids: List[str], context: Dict[str, str]) -> Dict:
@@ -319,8 +344,8 @@ class LLMService:
         # also vectorize the conversational turns for future retrieval (best-effort)
         try:
             conv_material_id = f"session:{session_id}"
-            await self.generate_embeddings(question, material_id=conv_material_id, content_type="conversation")
-            await self.generate_embeddings(answer, material_id=conv_material_id, content_type="conversation")
+            await self.generate_embeddings(question, material_id=conv_material_id, content_type="conversation", user_id=user_id)
+            await self.generate_embeddings(answer, material_id=conv_material_id, content_type="conversation", user_id=user_id)
         except Exception:
             pass
 

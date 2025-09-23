@@ -14,6 +14,7 @@ type Config struct {
 	Paddle   PaddleOCRConfig
 	Kafka    KafkaConfig
 	Material MaterialCallbackConfig
+	OpenAI   OpenAIConfig
 }
 
 type MinIOConfig struct {
@@ -43,6 +44,12 @@ type MaterialCallbackConfig struct {
 	Addr string // e.g., material-service:50053 (UpdateProcessingResult)
 }
 
+type OpenAIConfig struct {
+	APIKey  string
+	BaseURL string
+	Model   string
+}
+
 func Load() *Config {
 	_ = godotenv.Load()
 	return &Config{
@@ -65,6 +72,11 @@ func Load() *Config {
 		},
 		Material: MaterialCallbackConfig{
 			Addr: getEnv("MATERIAL_GRPC_ADDR", "material-service:50053"),
+		},
+		OpenAI: OpenAIConfig{
+			APIKey:  os.Getenv("OPENAI_API_KEY"),
+			BaseURL: os.Getenv("OPENAI_BASE_URL"),
+			Model:   getEnv("OPENAI_MODEL", "gpt-4o-mini"),
 		},
 	}
 }

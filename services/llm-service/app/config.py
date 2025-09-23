@@ -47,6 +47,7 @@ class Settings:
     kafka_bootstrap_servers: str = os.getenv("KAFKA_BROKERS", "localhost:9092")
     kafka_group_id: str = os.getenv("KAFKA_GROUP_ID", "llm-worker")
     kafka_topic_file_processing: str = os.getenv("KAFKA_TOPIC_FILE_PROCESSING", "file.processing")
+    kafka_topic_text_extracted: str = os.getenv("KAFKA_TOPIC_TEXT_EXTRACTED", "text.extracted")
 
     # MinIO settings
     minio_endpoint: str = os.getenv("MINIO_ENDPOINT", "localhost:9000")

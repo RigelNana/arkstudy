@@ -4,8 +4,10 @@ use (
 	./gateway
 	./pkg/metrics
 	./proto
+	./services/asr-service
 	./services/auth-service
 	./services/material-service
 	./services/ocr-service
+	./services/quiz-service
 	./services/user-service
 )
